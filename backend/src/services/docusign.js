@@ -125,12 +125,15 @@ class DocuSignService {
       
       const envelopesApi = new docusign.EnvelopesApi(this.apiClient);
       
-      // Generate a unique registration ID
-      const registrationId = this.generateRegistrationId();
+      // Use existing registration ID if provided, otherwise generate a new one
+      const registrationId = data.registrationId || this.generateRegistrationId();
       
       // Create the document with registration ID
       const doc = new docusign.Document();
-      doc.documentBase64 = Buffer.from(data.documentHtml.replace('${registrationId}', registrationId)).toString('base64');
+      const documentHtml = data.documentHtml.includes('${registrationId}') 
+        ? data.documentHtml.replace('${registrationId}', registrationId)
+        : data.documentHtml;
+      doc.documentBase64 = Buffer.from(documentHtml).toString('base64');
       doc.name = 'Drone Registration Certificate';
       doc.fileExtension = 'html';
       doc.documentId = '1';
@@ -149,7 +152,7 @@ class DocuSignService {
         routingOrder: '1',
         emailNotification: {
           emailSubject: 'Please sign your drone registration certificate',
-          emailBody: `Please sign your drone registration certificate. Your registration ID is: ${registrationId}`,
+          emailBody: `Please sign your drone registration certificate. Your registration ID is: ${data.registrationId || registrationId}`,
           supportedLanguage: 'en'
         }
       });
@@ -229,7 +232,7 @@ class DocuSignService {
         envelopeId: results.envelopeId,
         status: results.status,
         message: `An email has been sent to ${ownerEmail} for signing.`,
-        registrationId
+        registrationId: data.registrationId || registrationId // Return the original registration ID if provided
       };
     } catch (error) {
       console.error('Error creating envelope:', error);

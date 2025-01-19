@@ -71,6 +71,9 @@ class DocuSignService {
   }
 
   private createDocumentHtml(data: DroneSigningData) {
+    // Use the existing registration ID directly if provided
+    const registrationId = data.registrationId || '${registrationId}';
+    
     return `
       <!DOCTYPE html>
       <html>
@@ -79,7 +82,7 @@ class DocuSignService {
           <p>This document certifies that the following drone has been officially registered:</p>
           
           <h2>Registration Details</h2>
-          <p><strong>Registration ID:</strong> \${registrationId}</p>
+          <p><strong>Registration ID:</strong> ${registrationId}</p>
           
           <h2>Drone Information</h2>
           <ul>
@@ -117,18 +120,18 @@ class DocuSignService {
       console.log('Initiating signing process with data:', data);
       
       // Create the envelope and send for signing
-      const { envelopeId, status, message, registrationId } = await this.createSigningRequest({
+      const { envelopeId, status, message } = await this.createSigningRequest({
         ...data,
         documentHtml: this.createDocumentHtml(data)
       });
       
-      console.log('Envelope created:', { envelopeId, status, message, registrationId });
+      console.log('Envelope created:', { envelopeId, status, message, registrationId: data.registrationId });
 
       return {
         envelopeId,
         status,
         message,
-        registrationId
+        registrationId: data.registrationId // Always return the provided registration ID
       };
     } catch (error) {
       console.error('Detailed error in signing process:', error);

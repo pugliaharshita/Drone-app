@@ -59,8 +59,15 @@ router.post('/webhook', async (req, res) => {
       .eq('docusign_envelope_id', envelopeId)
       .single();
 
-    if (findError || !drone) {
+    if (findError) {
+      console.error('Error finding drone:', findError);
       throw new Error('Failed to find drone record for envelope');
+    }
+
+    if (!drone) {
+      console.error('No drone found for envelope ID:', envelopeId);
+      // Still return 200 to acknowledge webhook
+      return res.status(200).json({ message: 'No matching drone found for envelope' });
     }
 
     // Update the status
@@ -69,9 +76,10 @@ router.post('/webhook', async (req, res) => {
       .update({
         docusign_status: status === 'completed' ? 'completed' : status
       })
-      .eq('docusign_envelope_id', envelopeId);
+      .eq('id', drone.id);
 
     if (updateError) {
+      console.error('Error updating drone:', updateError);
       throw new Error('Failed to update drone status');
     }
 

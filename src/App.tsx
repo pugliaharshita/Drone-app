@@ -754,6 +754,85 @@ function App() {
             <div className="space-y-8">
               <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-semibold text-slate-900">Drone Details</h2>
+                <div className="flex items-center gap-4">
+                  {selectedDrone.docusign_status !== 'completed' && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          // Get owner info for the selected drone
+                          const { data: ownerData } = await supabase
+                            .from('owners')
+                            .select('*')
+                            .eq('id', selectedDrone.owner_id)
+                            .single();
+
+                          if (!ownerData) {
+                            throw new Error('Owner information not found');
+                          }
+
+                          // Prepare signing data with existing registration ID
+                          const signingData = {
+                            droneId: selectedDrone.serial_number,
+                            manufacturer: selectedDrone.manufacturer,
+                            model: selectedDrone.model,
+                            serialNumber: selectedDrone.serial_number,
+                            ownerName: `${ownerData.first_name} ${ownerData.last_name}`,
+                            ownerEmail: ownerData.email,
+                            pilotLicense: ownerData.pilot_license,
+                            registrationId: selectedDrone.registration_id // Pass the existing registration ID
+                          };
+
+                          // Get origin for return URL
+                          const origin = window.location.origin || 'http://localhost:3000';
+                          
+                          // Initiate signing process with existing registration ID
+                          const response = await docuSignService.initiateSigningProcess(
+                            signingData,
+                            `${origin}/registration-complete`
+                          );
+
+                          // Verify the registration ID hasn't changed
+                          if (response.registrationId !== selectedDrone.registration_id) {
+                            throw new Error('Registration ID mismatch');
+                          }
+
+                          // Update drone record with new envelope ID and status
+                          const { error: updateError } = await supabase
+                            .from('drones')
+                            .update({
+                              docusign_envelope_id: response.envelopeId,
+                              docusign_status: response.status
+                            })
+                            .eq('id', selectedDrone.id);
+
+                          if (updateError) throw updateError;
+
+                          // Show success notification
+                          showNotification('success', 'Signing request has been resent. Please check your email.');
+                          
+                          // Update the selected drone's status
+                          setSelectedDrone({
+                            ...selectedDrone,
+                            docusign_status: response.status
+                          });
+                        } catch (error) {
+                          console.error('Error resending signature request:', error);
+                          showNotification('error', 'Failed to resend signature request. Please try again.');
+                        }
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-medium shadow-lg shadow-blue-600/10 transition-all hover:shadow-xl hover:shadow-blue-600/20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
+                    >
+                      <Clock className="h-4 w-4" />
+                      Resend for Signing
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setStep('dashboard')}
+                    className="text-slate-600 hover:text-slate-900 font-medium transition-colors"
+                  >
+                    Back to Dashboard
+                  </button>
+                </div>
               </div>
 
               <div className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-slate-100 p-8">
