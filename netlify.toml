@@ -13,14 +13,17 @@
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+    Access-Control-Allow-Credentials = "true"
     Access-Control-Max-Age = "86400"
+    Vary = "Origin"
 
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/index/:splat"
   status = 200
   force = true
+  headers = {Access-Control-Allow-Origin = ":origin", Access-Control-Allow-Credentials = "true", Vary = "Origin"}
 
 [[redirects]]
   from = "/*"

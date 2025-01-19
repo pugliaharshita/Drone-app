@@ -32,19 +32,30 @@ module.exports.handler = async (event, context) => {
   console.log('Incoming request:', {
     method: event.httpMethod,
     path: event.path,
-    headers: event.headers
+    headers: event.headers,
+    origin: event.headers.origin || event.headers.Origin
   });
+
+  // Get the origin from the request headers
+  const origin = event.headers.origin || event.headers.Origin || '*';
+
+  // Common CORS headers
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
 
   // Handle OPTIONS requests for CORS
   if (event.httpMethod === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return {
       statusCode: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-        'Access-Control-Max-Age': '86400'
-      }
+      headers: corsHeaders,
+      body: ''
     };
   }
 
@@ -52,14 +63,17 @@ module.exports.handler = async (event, context) => {
     // Process the request through Express
     const response = await handler(event, context);
 
+    console.log('Response:', {
+      statusCode: response.statusCode,
+      headers: response.headers
+    });
+
     // Add CORS headers to the response
     return {
       ...response,
       headers: {
         ...response.headers,
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+        ...corsHeaders
       }
     };
   } catch (error) {
@@ -68,11 +82,7 @@ module.exports.handler = async (event, context) => {
     // Return error response with CORS headers
     return {
       statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
-      },
+      headers: corsHeaders,
       body: JSON.stringify({ message: 'Internal server error' })
     };
   }
