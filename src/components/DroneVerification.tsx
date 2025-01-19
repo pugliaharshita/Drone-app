@@ -92,7 +92,7 @@ export function DroneVerification() {
       }
 
       if (!droneData) {
-        setError('No drone found with the provided registration ID or serial number.');
+        setError('No registered drone found with this ID. Please verify the registration ID and try again.');
         return;
       }
 
@@ -180,19 +180,21 @@ export function DroneVerification() {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-8 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-red-100 rounded-lg p-1">
-                  <X className="h-4 w-4 text-red-600" />
+            <div className="bg-red-50 border border-red-100 rounded-xl p-6 mb-8">
+              <div className="flex flex-col items-center text-center">
+                <div className="bg-red-100 rounded-full p-3 mb-4">
+                  <X className="h-6 w-6 text-red-600" />
                 </div>
-                <p className="text-red-600">{error}</p>
+                <h3 className="text-lg font-semibold text-red-900 mb-2">Verification Failed</h3>
+                <p className="text-red-600 mb-4">{error}</p>
+                <p className="text-sm text-red-500">Please check the registration ID and try again, or contact support if you need assistance.</p>
+                <button
+                  onClick={handleClear}
+                  className="mt-4 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Try Another Search
+                </button>
               </div>
-              <button
-                onClick={handleClear}
-                className="text-red-600 hover:text-red-700 text-sm font-medium"
-              >
-                Try Again
-              </button>
             </div>
           )}
 
