@@ -9,8 +9,24 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// CORS headers middleware
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'http://localhost:5173',
+  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Credentials': 'true'
+};
+
+// Handle OPTIONS requests
+router.options('*', (req, res) => {
+  res.set(corsHeaders).status(204).send();
+});
+
 // Create envelope and get signing URL
 router.post('/create-envelope', async (req, res) => {
+  // Add CORS headers
+  res.set(corsHeaders);
+
   try {
     const data = req.body;
     const result = await docuSignService.createEnvelope(data);
@@ -23,6 +39,9 @@ router.post('/create-envelope', async (req, res) => {
 
 // Get signing URL for an envelope
 router.post('/signing-url', async (req, res) => {
+  // Add CORS headers
+  res.set(corsHeaders);
+
   try {
     const { envelopeId, returnUrl, signerEmail, signerName } = req.body;
     
@@ -48,6 +67,9 @@ router.post('/signing-url', async (req, res) => {
 
 // DocuSign Connect webhook endpoint
 router.post('/webhook', async (req, res) => {
+  // Add CORS headers
+  res.set(corsHeaders);
+
   try {
     console.log('Received DocuSign webhook payload:', JSON.stringify(req.body, null, 2));
 
