@@ -43,10 +43,11 @@ router.post('/signing-url', async (req, res) => {
 // DocuSign Connect webhook endpoint
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('Received DocuSign webhook:', req.body);
+    console.log('Received DocuSign webhook:', JSON.stringify(req.body, null, 2));
 
     // Extract envelope data from the webhook payload
-    const { envelopeId, status } = req.body;
+    const { envelopeId, status, envelopeStatus } = req.body;
+    const actualStatus = status || envelopeStatus;
     
     if (!envelopeId) {
       throw new Error('No envelope ID in webhook payload');
@@ -70,11 +71,25 @@ router.post('/webhook', async (req, res) => {
       return res.status(200).json({ message: 'No matching drone found for envelope' });
     }
 
+    // Map DocuSign status to our status
+    let droneStatus = actualStatus;
+    if (actualStatus === 'Completed' || actualStatus === 'completed') {
+      droneStatus = 'completed';
+    } else if (actualStatus === 'Declined' || actualStatus === 'declined') {
+      droneStatus = 'declined';
+    } else if (actualStatus === 'Voided' || actualStatus === 'voided') {
+      droneStatus = 'voided';
+    } else if (actualStatus === 'Sent' || actualStatus === 'sent') {
+      droneStatus = 'sent';
+    } else if (actualStatus === 'Delivered' || actualStatus === 'delivered') {
+      droneStatus = 'delivered';
+    }
+
     // Update the status
     const { error: updateError } = await supabase
       .from('drones')
       .update({
-        docusign_status: status === 'completed' ? 'completed' : status
+        docusign_status: droneStatus
       })
       .eq('id', drone.id);
 
@@ -83,6 +98,7 @@ router.post('/webhook', async (req, res) => {
       throw new Error('Failed to update drone status');
     }
 
+    console.log('Successfully updated drone status:', { droneId: drone.id, status: droneStatus });
     res.status(200).json({ message: 'Webhook processed successfully' });
   } catch (error) {
     console.error('Error processing webhook:', error);

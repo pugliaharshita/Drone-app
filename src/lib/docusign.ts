@@ -140,6 +140,10 @@ class DocuSignService {
         throw new Error('No registration ID received from DocuSign service');
       }
 
+      // Get the signing URL and redirect to it
+      const signingUrl = await this.getSigningUrl(response.envelopeId, returnUrl);
+      window.location.href = signingUrl;
+
       return {
         envelopeId: response.envelopeId,
         status: response.status,
