@@ -1,6 +1,6 @@
 [build]
   base = "backend"
-  command = "npm install"
+  command = "mkdir -p public && echo '<!DOCTYPE html><html><body><h1>Backend API</h1></body></html>' > public/index.html && npm install"
   publish = "public"
 
 [functions]
@@ -8,6 +8,11 @@
   node_bundler = "esbuild"
 
 [[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/index/:splat"
+  status = 200
+
+[[redirects]]
   from = "/*"
-  to = "/.netlify/functions/index"
+  to = "/index.html"
   status = 200 
