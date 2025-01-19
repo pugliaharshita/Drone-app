@@ -195,21 +195,16 @@ class DocuSignService {
         includeTimeZone: true,
         includeSenderAccountAsCustomField: true,
         includeDocumentFields: false,
-        includeCertificateOfCompletion: true,
+        includeCertificateOfCompletion: false,
         envelopeEvents: [
           { envelopeEventStatusCode: 'completed' },
           { envelopeEventStatusCode: 'declined' },
-          { envelopeEventStatusCode: 'voided' },
-          { envelopeEventStatusCode: 'sent' },
-          { envelopeEventStatusCode: 'delivered' }
+          { envelopeEventStatusCode: 'voided' }
         ],
         recipientEvents: [
           { recipientEventStatusCode: 'Completed' },
           { recipientEventStatusCode: 'Declined' },
-          { recipientEventStatusCode: 'AuthenticationFailed' },
-          { recipientEventStatusCode: 'AutoResponded' },
-          { recipientEventStatusCode: 'Delivered' },
-          { recipientEventStatusCode: 'Sent' }
+          { recipientEventStatusCode: 'AuthenticationFailed' }
         ]
       });
 
