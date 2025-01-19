@@ -43,14 +43,17 @@ router.post('/signing-url', async (req, res) => {
 // DocuSign Connect webhook endpoint
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('Received DocuSign webhook:', JSON.stringify(req.body, null, 2));
+    console.log('Received DocuSign webhook payload:', JSON.stringify(req.body, null, 2));
+    console.log('Webhook headers:', JSON.stringify(req.headers, null, 2));
 
     // Extract envelope data from the webhook payload
     const envelopeId = req.body.data?.envelopeId;
     const event = req.body.event;
     
+    console.log('Extracted webhook data:', { envelopeId, event });
+    
     if (!envelopeId) {
-      console.error('Webhook payload missing envelope ID:', req.body);
+      console.error('Webhook payload missing envelope ID. Full payload:', JSON.stringify(req.body, null, 2));
       // Return 200 even for errors to acknowledge receipt
       return res.status(200).json({ message: 'No envelope ID in webhook payload' });
     }
@@ -71,6 +74,7 @@ router.post('/webhook', async (req, res) => {
         status = event;
     }
 
+    console.log('Mapped status:', { event, status });
     console.log('Processing webhook for envelope:', { envelopeId, event, status });
 
     // Update the drone record in Supabase
@@ -108,16 +112,21 @@ router.post('/webhook', async (req, res) => {
     console.log('Successfully updated drone status:', { 
       droneId: drone.id, 
       oldStatus: drone.docusign_status,
-      newStatus: status 
+      newStatus: status,
+      envelopeId,
+      event 
     });
 
     res.status(200).json({ 
       message: 'Webhook processed successfully',
       droneId: drone.id,
-      status: status
+      status: status,
+      envelopeId,
+      event
     });
   } catch (error) {
     console.error('Error processing webhook:', error);
+    console.error('Error stack:', error.stack);
     // Always return 200 to acknowledge receipt of webhook
     res.status(200).json({ message: 'Error processing webhook', error: error.message });
   }
