@@ -7,15 +7,15 @@ const docusignRoutes = require('./routes/docusign');
 const app = express();
 
 // CORS configuration
-const corsOptions = {
-  origin: ['http://localhost:5173', 'https://drone-registration.netlify.app'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+app.use(cors({
+  origin: '*',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-};
+  credentials: true,
+  preflightContinue: true,
+  optionsSuccessStatus: 204
+}));
 
-// Middleware
-app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
@@ -32,5 +32,36 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong!' });
 });
 
-// Export the serverless function
-module.exports.handler = serverless(app); 
+// Create the serverless handler
+const handler = serverless(app);
+
+// Wrap the handler to add CORS headers
+module.exports.handler = async (event, context) => {
+  // Add CORS headers to all responses
+  const response = await handler(event, context);
+  
+  // Add CORS headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Credentials': true
+  };
+
+  // Handle OPTIONS requests
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers
+    };
+  }
+
+  // Add headers to the response
+  return {
+    ...response,
+    headers: {
+      ...response.headers,
+      ...headers
+    }
+  };
+}; 

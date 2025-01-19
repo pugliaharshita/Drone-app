@@ -9,32 +9,6 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// CORS headers middleware
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',  // Allow all origins in development
-  'Access-Control-Allow-Methods': '*',
-  'Access-Control-Allow-Headers': '*',
-  'Access-Control-Max-Age': '86400',  // 24 hours
-  'Access-Control-Allow-Credentials': 'true'
-};
-
-// Handle preflight requests
-router.options('*', (req, res) => {
-  // Set CORS headers
-  Object.keys(corsHeaders).forEach(key => {
-    res.setHeader(key, corsHeaders[key]);
-  });
-  res.status(204).send();
-});
-
-// Middleware to set CORS headers for all routes
-router.use((req, res, next) => {
-  Object.keys(corsHeaders).forEach(key => {
-    res.setHeader(key, corsHeaders[key]);
-  });
-  next();
-});
-
 // Create envelope and get signing URL
 router.post('/create-envelope', async (req, res) => {
   try {
