@@ -44,7 +44,6 @@ router.post('/signing-url', async (req, res) => {
 router.post('/webhook', async (req, res) => {
   try {
     console.log('Received DocuSign webhook payload:', JSON.stringify(req.body, null, 2));
-    console.log('Webhook headers:', JSON.stringify(req.headers, null, 2));
 
     // Extract envelope data from the webhook payload
     const envelopeId = req.body.data?.envelopeId;
@@ -54,7 +53,6 @@ router.post('/webhook', async (req, res) => {
     
     if (!envelopeId) {
       console.error('Webhook payload missing envelope ID. Full payload:', JSON.stringify(req.body, null, 2));
-      // Return 200 even for errors to acknowledge receipt
       return res.status(200).json({ message: 'No envelope ID in webhook payload' });
     }
 
@@ -75,9 +73,8 @@ router.post('/webhook', async (req, res) => {
     }
 
     console.log('Mapped status:', { event, status });
-    console.log('Processing webhook for envelope:', { envelopeId, event, status });
 
-    // Update the drone record in Supabase
+    // First find the drone record
     console.log('Searching for drone with envelope ID:', envelopeId);
     const { data: drone, error: findError } = await supabase
       .from('drones')
@@ -102,13 +99,15 @@ router.post('/webhook', async (req, res) => {
 
     console.log('Found drone record:', {
       id: drone.id,
+      serial_number: drone.serial_number,
       docusign_envelope_id: drone.docusign_envelope_id,
       current_status: drone.docusign_status
     });
 
-    // Update the status
+    // Update the status using both id and serial_number for uniqueness
     console.log('Attempting to update drone status:', {
       droneId: drone.id,
+      serialNumber: drone.serial_number,
       oldStatus: drone.docusign_status,
       newStatus: status
     });
@@ -118,9 +117,11 @@ router.post('/webhook', async (req, res) => {
       .update({
         docusign_status: status
       })
-      .eq('id', drone.id)
-      .select()
-      .single();
+      .match({
+        id: drone.id,
+        serial_number: drone.serial_number
+      })
+      .select();
 
     if (updateError) {
       console.error('Error updating drone:', updateError);
@@ -132,21 +133,29 @@ router.post('/webhook', async (req, res) => {
       return res.status(200).json({ message: 'Failed to update drone status' });
     }
 
-    console.log('Successfully updated drone status. Updated record:', updateData);
+    if (!updateData || updateData.length === 0) {
+      console.error('No rows were updated');
+      return res.status(200).json({ message: 'No rows were updated' });
+    }
+
+    const updatedDrone = updateData[0];
+    console.log('Successfully updated drone status. Updated record:', updatedDrone);
     console.log('Status update summary:', { 
       droneId: drone.id, 
+      serialNumber: drone.serial_number,
       oldStatus: drone.docusign_status,
       newStatus: status,
       envelopeId,
       event,
-      actualNewStatus: updateData.docusign_status
+      actualNewStatus: updatedDrone.docusign_status
     });
 
     res.status(200).json({ 
       message: 'Webhook processed successfully',
       droneId: drone.id,
+      serialNumber: drone.serial_number,
       oldStatus: drone.docusign_status,
-      newStatus: updateData.docusign_status,
+      newStatus: updatedDrone.docusign_status,
       envelopeId,
       event
     });
