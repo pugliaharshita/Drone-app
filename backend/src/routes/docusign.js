@@ -78,6 +78,7 @@ router.post('/webhook', async (req, res) => {
     console.log('Processing webhook for envelope:', { envelopeId, event, status });
 
     // Update the drone record in Supabase
+    console.log('Searching for drone with envelope ID:', envelopeId);
     const { data: drone, error: findError } = await supabase
       .from('drones')
       .select('*')
@@ -86,6 +87,11 @@ router.post('/webhook', async (req, res) => {
 
     if (findError) {
       console.error('Error finding drone:', findError);
+      console.error('Supabase find error details:', {
+        message: findError.message,
+        details: findError.details,
+        hint: findError.hint
+      });
       return res.status(200).json({ message: 'Failed to find drone record for envelope' });
     }
 
@@ -94,33 +100,53 @@ router.post('/webhook', async (req, res) => {
       return res.status(200).json({ message: 'No matching drone found for envelope' });
     }
 
-    console.log('Found drone record:', drone);
+    console.log('Found drone record:', {
+      id: drone.id,
+      docusign_envelope_id: drone.docusign_envelope_id,
+      current_status: drone.docusign_status
+    });
 
     // Update the status
-    const { error: updateError } = await supabase
+    console.log('Attempting to update drone status:', {
+      droneId: drone.id,
+      oldStatus: drone.docusign_status,
+      newStatus: status
+    });
+
+    const { data: updateData, error: updateError } = await supabase
       .from('drones')
       .update({
         docusign_status: status
       })
-      .eq('id', drone.id);
+      .eq('id', drone.id)
+      .select()
+      .single();
 
     if (updateError) {
       console.error('Error updating drone:', updateError);
+      console.error('Supabase update error details:', {
+        message: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint
+      });
       return res.status(200).json({ message: 'Failed to update drone status' });
     }
 
-    console.log('Successfully updated drone status:', { 
+    console.log('Successfully updated drone status. Updated record:', updateData);
+    console.log('Status update summary:', { 
       droneId: drone.id, 
       oldStatus: drone.docusign_status,
       newStatus: status,
       envelopeId,
-      event 
+      event,
+      actualNewStatus: updateData.docusign_status
     });
 
     res.status(200).json({ 
       message: 'Webhook processed successfully',
       droneId: drone.id,
-      status: status,
+      oldStatus: drone.docusign_status,
+      newStatus: updateData.docusign_status,
       envelopeId,
       event
     });
