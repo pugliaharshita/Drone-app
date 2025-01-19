@@ -1,7 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const docuSignService = require('../services/docusign');
-const supabase = require('../lib/supabase');
+const { createClient } = require('@supabase/supabase-js');
+
+// Create a Supabase client with the service role key for admin access
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Create envelope and get signing URL
 router.post('/create-envelope', async (req, res) => {
@@ -74,9 +80,9 @@ router.post('/webhook', async (req, res) => {
 
     console.log('Mapped status:', { event, status });
 
-    // First find the drone record
+    // First find the drone record using admin client
     console.log('Searching for drone with envelope ID:', envelopeId);
-    const { data: drone, error: findError } = await supabase
+    const { data: drone, error: findError } = await supabaseAdmin
       .from('drones')
       .select('*')
       .eq('docusign_envelope_id', envelopeId)
@@ -104,7 +110,7 @@ router.post('/webhook', async (req, res) => {
       current_status: drone.docusign_status
     });
 
-    // Update the status using just the primary key
+    // Update the status using admin client
     console.log('Attempting to update drone status:', {
       droneId: drone.id,
       serialNumber: drone.serial_number,
@@ -112,20 +118,8 @@ router.post('/webhook', async (req, res) => {
       newStatus: status
     });
 
-    // First verify we can still find the drone
-    const { data: verifyDrone, error: verifyError } = await supabase
-      .from('drones')
-      .select('*')
-      .eq('id', drone.id)
-      .single();
-
-    if (verifyError || !verifyDrone) {
-      console.error('Could not verify drone exists before update:', verifyError || 'No drone found');
-      return res.status(200).json({ message: 'Could not verify drone exists before update' });
-    }
-
-    // Perform the update using only the primary key
-    const { data: updateData, error: updateError } = await supabase
+    // Perform the update using admin client
+    const { data: updateData, error: updateError } = await supabaseAdmin
       .from('drones')
       .update({ docusign_status: status })
       .eq('id', drone.id)
@@ -142,12 +136,12 @@ router.post('/webhook', async (req, res) => {
     }
 
     if (!updateData || updateData.length === 0) {
-      console.error('No rows were updated. Current drone state:', verifyDrone);
+      console.error('No rows were updated. Current drone state:', drone);
       return res.status(200).json({ 
         message: 'No rows were updated',
         currentState: {
-          id: verifyDrone.id,
-          status: verifyDrone.docusign_status
+          id: drone.id,
+          status: drone.docusign_status
         }
       });
     }
