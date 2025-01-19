@@ -23,9 +23,6 @@ router.post('/create-envelope', async (req, res) => {
 
 // Get signing URL for an envelope
 router.post('/signing-url', async (req, res) => {
-  // Add CORS headers
-  res.set(corsHeaders);
-
   try {
     const { envelopeId, returnUrl, signerEmail, signerName } = req.body;
     
@@ -51,9 +48,6 @@ router.post('/signing-url', async (req, res) => {
 
 // DocuSign Connect webhook endpoint
 router.post('/webhook', async (req, res) => {
-  // Add CORS headers
-  res.set(corsHeaders);
-
   try {
     console.log('Received DocuSign webhook payload:', JSON.stringify(req.body, null, 2));
 
