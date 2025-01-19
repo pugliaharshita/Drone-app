@@ -1,5 +1,5 @@
 // DocuSign configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://droneback.netlify.app';
 
 interface DroneSigningData {
   droneId: string;
@@ -25,6 +25,9 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
+    console.log('Making request to:', `${API_BASE_URL}/api/docusign/create-envelope`);
+    console.log('Request data:', data);
+
     const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
       method: 'POST',
       headers: {
