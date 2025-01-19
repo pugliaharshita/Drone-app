@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main body -->
+  <rect x="12" y="12" width="8" height="8" rx="2" fill="#3B82F6"/>
+  
+  <!-- Propellers -->
+  <circle cx="8" cy="8" r="4" fill="#3B82F6"/>
+  <circle cx="24" cy="8" r="4" fill="#3B82F6"/>
+  <circle cx="8" cy="24" r="4" fill="#3B82F6"/>
+  <circle cx="24" cy="24" r="4" fill="#3B82F6"/>
+  
+  <!-- Connecting arms -->
+  <rect x="8" y="15" width="16" height="2" fill="#3B82F6"/>
+  <rect x="15" y="8" width="2" height="16" fill="#3B82F6"/>
+</svg> 
