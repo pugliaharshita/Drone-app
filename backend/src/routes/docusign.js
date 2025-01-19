@@ -46,7 +46,9 @@ router.post('/webhook', async (req, res) => {
     console.log('Received DocuSign webhook:', req.body);
 
     // Extract envelope data from the webhook payload
-    const { envelopeId, status } = req.body;
+    // The envelope ID is now in data.envelopeId for webhook events
+    const envelopeId = req.body.data?.envelopeId;
+    const status = req.body.event === 'envelope-completed' ? 'completed' : req.body.event;
     
     if (!envelopeId) {
       throw new Error('No envelope ID in webhook payload');
@@ -86,8 +88,8 @@ router.post('/webhook', async (req, res) => {
     res.status(200).json({ message: 'Webhook processed successfully' });
   } catch (error) {
     console.error('Error processing webhook:', error);
-    // Always return 200 to DocuSign to acknowledge receipt
-    res.status(200).json({ message: 'Webhook received with errors', error: error.message });
+    // Still return 200 to acknowledge receipt of webhook
+    res.status(200).json({ message: error.message });
   }
 });
 
