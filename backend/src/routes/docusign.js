@@ -104,7 +104,7 @@ router.post('/webhook', async (req, res) => {
       current_status: drone.docusign_status
     });
 
-    // Update the status using both id and serial_number for uniqueness
+    // Update the status using just the primary key
     console.log('Attempting to update drone status:', {
       droneId: drone.id,
       serialNumber: drone.serial_number,
@@ -112,15 +112,23 @@ router.post('/webhook', async (req, res) => {
       newStatus: status
     });
 
+    // First verify we can still find the drone
+    const { data: verifyDrone, error: verifyError } = await supabase
+      .from('drones')
+      .select('*')
+      .eq('id', drone.id)
+      .single();
+
+    if (verifyError || !verifyDrone) {
+      console.error('Could not verify drone exists before update:', verifyError || 'No drone found');
+      return res.status(200).json({ message: 'Could not verify drone exists before update' });
+    }
+
+    // Perform the update using only the primary key
     const { data: updateData, error: updateError } = await supabase
       .from('drones')
-      .update({
-        docusign_status: status
-      })
-      .match({
-        id: drone.id,
-        serial_number: drone.serial_number
-      })
+      .update({ docusign_status: status })
+      .eq('id', drone.id)
       .select();
 
     if (updateError) {
@@ -134,8 +142,14 @@ router.post('/webhook', async (req, res) => {
     }
 
     if (!updateData || updateData.length === 0) {
-      console.error('No rows were updated');
-      return res.status(200).json({ message: 'No rows were updated' });
+      console.error('No rows were updated. Current drone state:', verifyDrone);
+      return res.status(200).json({ 
+        message: 'No rows were updated',
+        currentState: {
+          id: verifyDrone.id,
+          status: verifyDrone.docusign_status
+        }
+      });
     }
 
     const updatedDrone = updateData[0];
