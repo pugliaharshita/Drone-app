@@ -29,7 +29,11 @@ class DocuSignService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
       },
+      credentials: 'include',
+      mode: 'cors',
       body: JSON.stringify(data)
     });
 
@@ -50,7 +54,11 @@ class DocuSignService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         },
+        credentials: 'include',
+        mode: 'cors',
         body: JSON.stringify({
           envelopeId,
           returnUrl,
