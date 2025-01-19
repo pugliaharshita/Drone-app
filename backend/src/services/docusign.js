@@ -195,7 +195,7 @@ class DocuSignService {
         includeTimeZone: true,
         includeSenderAccountAsCustomField: true,
         includeDocumentFields: false,
-        includeCertificateOfCompletion: false,
+        includeCertificateOfCompletion: true,
         envelopeEvents: [
           { envelopeEventStatusCode: 'completed' },
           { envelopeEventStatusCode: 'declined' },

@@ -43,16 +43,35 @@ router.post('/signing-url', async (req, res) => {
 // DocuSign Connect webhook endpoint
 router.post('/webhook', async (req, res) => {
   try {
-    console.log('Received DocuSign webhook:', req.body);
+    console.log('Received DocuSign webhook:', JSON.stringify(req.body, null, 2));
 
     // Extract envelope data from the webhook payload
-    // The envelope ID is now in data.envelopeId for webhook events
     const envelopeId = req.body.data?.envelopeId;
-    const status = req.body.event === 'envelope-completed' ? 'completed' : req.body.event;
+    const event = req.body.event;
     
     if (!envelopeId) {
-      throw new Error('No envelope ID in webhook payload');
+      console.error('Webhook payload missing envelope ID:', req.body);
+      // Return 200 even for errors to acknowledge receipt
+      return res.status(200).json({ message: 'No envelope ID in webhook payload' });
     }
+
+    // Map DocuSign events to our status values
+    let status;
+    switch (event) {
+      case 'envelope-completed':
+        status = 'completed';
+        break;
+      case 'envelope-declined':
+        status = 'declined';
+        break;
+      case 'envelope-voided':
+        status = 'voided';
+        break;
+      default:
+        status = event;
+    }
+
+    console.log('Processing webhook for envelope:', { envelopeId, event, status });
 
     // Update the drone record in Supabase
     const { data: drone, error: findError } = await supabase
@@ -63,33 +82,44 @@ router.post('/webhook', async (req, res) => {
 
     if (findError) {
       console.error('Error finding drone:', findError);
-      throw new Error('Failed to find drone record for envelope');
+      return res.status(200).json({ message: 'Failed to find drone record for envelope' });
     }
 
     if (!drone) {
       console.error('No drone found for envelope ID:', envelopeId);
-      // Still return 200 to acknowledge webhook
       return res.status(200).json({ message: 'No matching drone found for envelope' });
     }
+
+    console.log('Found drone record:', drone);
 
     // Update the status
     const { error: updateError } = await supabase
       .from('drones')
       .update({
-        docusign_status: status === 'completed' ? 'completed' : status
+        docusign_status: status
       })
       .eq('id', drone.id);
 
     if (updateError) {
       console.error('Error updating drone:', updateError);
-      throw new Error('Failed to update drone status');
+      return res.status(200).json({ message: 'Failed to update drone status' });
     }
 
-    res.status(200).json({ message: 'Webhook processed successfully' });
+    console.log('Successfully updated drone status:', { 
+      droneId: drone.id, 
+      oldStatus: drone.docusign_status,
+      newStatus: status 
+    });
+
+    res.status(200).json({ 
+      message: 'Webhook processed successfully',
+      droneId: drone.id,
+      status: status
+    });
   } catch (error) {
     console.error('Error processing webhook:', error);
-    // Still return 200 to acknowledge receipt of webhook
-    res.status(200).json({ message: error.message });
+    // Always return 200 to acknowledge receipt of webhook
+    res.status(200).json({ message: 'Error processing webhook', error: error.message });
   }
 });
 
