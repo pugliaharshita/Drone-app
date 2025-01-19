@@ -39,14 +39,16 @@ interface DroneInfo {
 
 interface RegisteredDrone {
   id: string;
+  owner_id: string;
   manufacturer: string;
   model: string;
   serial_number: string;
   weight: number;
   purpose: string;
   created_at: string;
-  registration_id: string;
+  registration_id: string | null;
   docusign_status: string;
+  docusign_envelope_id?: string;
 }
 
 interface Notification {
@@ -779,41 +781,55 @@ function App() {
                             ownerName: `${ownerData.first_name} ${ownerData.last_name}`,
                             ownerEmail: ownerData.email,
                             pilotLicense: ownerData.pilot_license,
-                            registrationId: selectedDrone.registration_id // Pass the existing registration ID
+                            // Only pass registration ID if it exists
+                            ...(selectedDrone.registration_id && { registrationId: selectedDrone.registration_id })
                           };
 
                           // Get origin for return URL
                           const origin = window.location.origin || 'http://localhost:3000';
                           
-                          // Initiate signing process with existing registration ID
+                          // Initiate signing process
                           const response = await docuSignService.initiateSigningProcess(
                             signingData,
                             `${origin}/registration-complete`
                           );
 
-                          // Verify the registration ID hasn't changed
-                          if (response.registrationId !== selectedDrone.registration_id) {
-                            throw new Error('Registration ID mismatch');
+                          // If we didn't have a registration ID before, we should update it now
+                          if (!selectedDrone.registration_id) {
+                            // Update drone record with new envelope ID, status, and registration ID
+                            const { error: updateError } = await supabase
+                              .from('drones')
+                              .update({
+                                docusign_envelope_id: response.envelopeId,
+                                docusign_status: response.status,
+                                registration_id: response.registrationId // Save the new registration ID
+                              })
+                              .eq('id', selectedDrone.id);
+
+                            if (updateError) throw updateError;
+                          } else {
+                            // Just update envelope ID and status for existing registration
+                            const { error: updateError } = await supabase
+                              .from('drones')
+                              .update({
+                                docusign_envelope_id: response.envelopeId,
+                                docusign_status: response.status
+                              })
+                              .eq('id', selectedDrone.id);
+
+                            if (updateError) throw updateError;
                           }
-
-                          // Update drone record with new envelope ID and status
-                          const { error: updateError } = await supabase
-                            .from('drones')
-                            .update({
-                              docusign_envelope_id: response.envelopeId,
-                              docusign_status: response.status
-                            })
-                            .eq('id', selectedDrone.id);
-
-                          if (updateError) throw updateError;
 
                           // Show success notification
                           showNotification('success', 'Signing request has been resent. Please check your email.');
                           
-                          // Update the selected drone's status
+                          // Update the selected drone's status and registration ID
                           setSelectedDrone({
                             ...selectedDrone,
-                            docusign_status: response.status
+                            docusign_status: response.status,
+                            docusign_envelope_id: response.envelopeId,
+                            // Update registration_id if it was null before
+                            registration_id: selectedDrone.registration_id || response.registrationId
                           });
                         } catch (error) {
                           console.error('Error resending signature request:', error);
