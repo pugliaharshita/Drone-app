@@ -34,283 +34,266 @@ interface VerificationResult {
   };
 }
 
-export function DroneVerification() {
+interface DroneVerificationProps {
+  onClose: () => void;
+}
+
+export function DroneVerification({ onClose }: DroneVerificationProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<VerificationResult | null>(null);
+  const [verifiedDrone, setVerifiedDrone] = useState<VerificationResult | null>(null);
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleVerification = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    setResult(null);
 
     try {
-      // First try to find by registration ID
-      let { data: droneData, error: droneError } = await supabase
+      // First try by registration ID
+      let { data: droneByRegId, error: regIdError } = await supabase
         .from('drones')
         .select(`
           *,
-          owner: owners (
+          owners (
             first_name,
             last_name,
-            email,
-            pilot_license,
-            address,
-            city,
-            state,
-            zip_code
+            pilot_license
           )
         `)
-        .eq('registration_id', searchQuery.trim())
+        .eq('registration_id', searchQuery)
         .single();
 
-      // If not found by registration ID, try serial number
-      if (!droneData && !droneError) {
-        ({ data: droneData, error: droneError } = await supabase
+      if (regIdError) {
+        // If not found by registration ID, try by serial number
+        let { data: droneBySerial, error: serialError } = await supabase
           .from('drones')
           .select(`
             *,
-            owner: owners (
+            owners (
               first_name,
               last_name,
-              email,
-              pilot_license,
-              address,
-              city,
-              state,
-              zip_code
+              pilot_license
             )
           `)
-          .eq('serial_number', searchQuery.trim())
-          .single());
-      }
+          .eq('serial_number', searchQuery)
+          .single();
 
-      if (droneError) {
-        throw droneError;
-      }
+        if (serialError) {
+          setError('No registered drone found with this ID. Please verify the registration ID and try again.');
+          return;
+        }
 
-      if (!droneData) {
-        setError('No registered drone found with this ID. Please verify the registration ID and try again.');
-        return;
-      }
+        if (!droneBySerial || !droneBySerial.owners) {
+          setError('Invalid drone data received from the server.');
+          return;
+        }
 
-      setResult({
-        drone: {
-          id: droneData.id,
-          manufacturer: droneData.manufacturer,
-          model: droneData.model,
-          serial_number: droneData.serial_number,
-          weight: droneData.weight,
-          purpose: droneData.purpose,
-          created_at: droneData.created_at,
-          registration_id: droneData.registration_id,
-          docusign_status: droneData.docusign_status
-        },
-        owner: {
-          first_name: droneData.owner.first_name,
-          last_name: droneData.owner.last_name,
-          pilot_license: droneData.owner.pilot_license,
-        },
-      });
+        setVerifiedDrone({
+          drone: {
+            id: droneBySerial.id,
+            manufacturer: droneBySerial.manufacturer,
+            model: droneBySerial.model,
+            serial_number: droneBySerial.serial_number,
+            weight: droneBySerial.weight,
+            purpose: droneBySerial.purpose,
+            created_at: droneBySerial.created_at,
+            registration_id: droneBySerial.registration_id,
+            docusign_status: droneBySerial.docusign_status
+          },
+          owner: {
+            first_name: droneBySerial.owners.first_name,
+            last_name: droneBySerial.owners.last_name,
+            pilot_license: droneBySerial.owners.pilot_license,
+          },
+        });
+      } else {
+        if (!droneByRegId || !droneByRegId.owners) {
+          setError('Invalid drone data received from the server.');
+          return;
+        }
+
+        setVerifiedDrone({
+          drone: {
+            id: droneByRegId.id,
+            manufacturer: droneByRegId.manufacturer,
+            model: droneByRegId.model,
+            serial_number: droneByRegId.serial_number,
+            weight: droneByRegId.weight,
+            purpose: droneByRegId.purpose,
+            created_at: droneByRegId.created_at,
+            registration_id: droneByRegId.registration_id,
+            docusign_status: droneByRegId.docusign_status
+          },
+          owner: {
+            first_name: droneByRegId.owners.first_name,
+            last_name: droneByRegId.owners.last_name,
+            pilot_license: droneByRegId.owners.pilot_license,
+          },
+        });
+      }
     } catch (error) {
-      console.error('Error verifying drone:', error);
-      setError('Failed to verify drone. Please try again.');
+      console.error('Verification error:', error);
+      setError('An error occurred during verification. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleClear = () => {
-    setSearchQuery('');
-    setResult(null);
-    setError(null);
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col">
-      <div className="container mx-auto px-4 py-8 flex-grow">
-        <div className="max-w-3xl mx-auto">
-          {/* Header */}
-          <div className="mb-12 text-center">
-            <div className="inline-flex items-center justify-center p-3 mb-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg shadow-blue-500/20 relative">
-              <div className="absolute inset-0 bg-white/20 rounded-2xl backdrop-blur-sm"></div>
-              <Plane className="h-8 w-8 text-white relative z-10" />
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="p-8">
+          <div className="flex justify-between items-start mb-8">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">Verify Drone Registration</h2>
+              <p className="text-slate-500 mt-1">Enter a registration ID or serial number to verify a drone</p>
             </div>
-            <div className="space-y-3">
-              <h1 className="text-4xl font-bold text-slate-900">
-                Drone Registration Verification
-              </h1>
-              <p className="text-slate-600 max-w-xl mx-auto">
-                Verify the authenticity and registration status of any drone in our official database
-              </p>
-            </div>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
           </div>
 
-          {/* Search Form */}
-          <form onSubmit={handleVerify} className="bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-slate-100 p-8 mb-8">
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <label htmlFor="registration-id" className="block text-sm font-medium text-slate-700 mb-2">
-                  Drone Registration ID
-                </label>
-                <input
-                  id="registration-id"
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Enter the drone registration ID"
-                  className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                  required
-                />
+          {!verifiedDrone ? (
+            <form onSubmit={handleVerification} className="space-y-6">
+              <div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Enter registration ID or serial number"
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                    required
+                  />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                </div>
+                {error && (
+                  <div className="mt-4 p-4 bg-red-50 rounded-xl border border-red-100 flex items-start gap-3">
+                    <div className="p-1 bg-red-100 rounded-full">
+                      <X className="h-4 w-4 text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-red-800">Verification Failed</h3>
+                      <p className="text-sm text-red-600 mt-0.5">{error}</p>
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="flex items-end">
+
+              <div className="flex justify-end">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-medium shadow-lg shadow-blue-600/10 transition-all hover:shadow-xl hover:shadow-blue-600/20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed h-[42px] flex items-center gap-2"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium shadow-lg shadow-indigo-600/10 transition-all hover:shadow-xl hover:shadow-indigo-600/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Search className="h-4 w-4" />
-                  Verify
+                  <Search className="h-5 w-5" />
+                  {isLoading ? 'Verifying...' : 'Verify Drone'}
                 </button>
               </div>
-            </div>
-          </form>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-100 rounded-xl p-6 mb-8">
-              <div className="flex flex-col items-center text-center">
-                <div className="bg-red-100 rounded-full p-3 mb-4">
-                  <X className="h-6 w-6 text-red-600" />
+            </form>
+          ) : (
+            <div className="space-y-8">
+              <div className="p-6 bg-green-50 rounded-xl border border-green-100 flex items-center gap-4">
+                <div className="p-2 bg-green-100 rounded-full">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-red-900 mb-2">Verification Failed</h3>
-                <p className="text-red-600 mb-4">{error}</p>
-                <p className="text-sm text-red-500">Please check the registration ID and try again, or contact support if you need assistance.</p>
-                <button
-                  onClick={handleClear}
-                  className="mt-4 bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors"
-                >
-                  Try Another Search
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Results */}
-          {result && (
-            <div className="mt-8 bg-white/70 backdrop-blur-lg rounded-2xl shadow-xl border border-slate-100 p-8">
-              <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h3 className="text-2xl font-semibold text-slate-900 mb-1">
-                    Drone Verification Result
-                  </h3>
-                </div>
-                <div className="flex gap-2">
-                  {result.drone.docusign_status === 'completed' ? (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700 border border-green-100">
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Verified
-                    </span>
-                  ) : result.drone.docusign_status === 'sent' ? (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">
-                      <Clock className="w-4 h-4 mr-1" />
-                      Pending Verification
-                    </span>
-                  ) : null}
+                  <h3 className="text-lg font-medium text-green-800">Valid Registration</h3>
+                  <p className="text-green-600">This drone is officially registered in our system</p>
                 </div>
               </div>
 
-              {result.drone.docusign_status === 'completed' ? (
-                <>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="col-span-2 bg-slate-50 p-4 rounded-lg">
-                      <label className="block text-sm font-medium text-slate-500 mb-1">Registration ID</label>
-                      <p className="text-lg font-mono font-semibold text-slate-900">{result.drone.registration_id}</p>
+              <div className="grid grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Registration Details</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Registration ID</p>
+                      <p className="text-slate-900">{verifiedDrone.drone.registration_id}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-500 mb-1">Manufacturer</label>
-                      <p className="text-slate-900">{result.drone.manufacturer}</p>
+                      <p className="text-sm font-medium text-slate-700">Registration Date</p>
+                      <p className="text-slate-900">{new Date(verifiedDrone.drone.created_at).toLocaleDateString()}</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-500 mb-1">Model</label>
-                      <p className="text-slate-900">{result.drone.model}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-500 mb-1">Serial Number</label>
-                      <p className="text-slate-900">{result.drone.serial_number}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-500 mb-1">Weight</label>
-                      <p className="text-slate-900">{result.drone.weight} grams</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-500 mb-1">Purpose</label>
-                      <p className="text-slate-900 capitalize">{result.drone.purpose}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-8">
-                    <h4 className="text-lg font-semibold text-slate-900 mb-4">Owner Information</h4>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-500 mb-1">Name</label>
-                        <p className="text-slate-900">
-                          {maskName(result.owner.first_name)} {maskName(result.owner.last_name)}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-slate-500 mb-1">Pilot License</label>
-                        <p className="text-slate-900">{maskLicenseId(result.owner.pilot_license)}</p>
+                      <p className="text-sm font-medium text-slate-700">Status</p>
+                      <div className="mt-1">
+                        {verifiedDrone.drone.docusign_status === 'completed' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700 border border-green-100">
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Signed
+                          </span>
+                        ) : verifiedDrone.drone.docusign_status === 'sent' ? (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">
+                            Pending Signature
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-slate-50 text-slate-700 border border-slate-100">
+                            Not Started
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-slate-600 mb-2">
-                    This drone registration is pending verification. Details will be available once the registration process is complete.
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    Please check back later or contact support if you need immediate assistance.
-                  </p>
                 </div>
-              )}
+
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Drone Information</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Manufacturer & Model</p>
+                      <p className="text-slate-900">{verifiedDrone.drone.manufacturer} {verifiedDrone.drone.model}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Serial Number</p>
+                      <p className="text-slate-900">{verifiedDrone.drone.serial_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Weight</p>
+                      <p className="text-slate-900">{verifiedDrone.drone.weight}g</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Purpose</p>
+                      <p className="text-slate-900 capitalize">{verifiedDrone.drone.purpose}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-200">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Owner Information</h3>
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Full Name</p>
+                    <p className="text-slate-900">{maskName(verifiedDrone.owner.first_name)} {maskName(verifiedDrone.owner.last_name)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-700">Pilot License</p>
+                    <p className="text-slate-900">{maskLicenseId(verifiedDrone.owner.pilot_license)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-6 border-t border-slate-200">
+                <button
+                  onClick={() => {
+                    setVerifiedDrone(null);
+                    setSearchQuery('');
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-medium shadow-lg shadow-indigo-600/10 transition-all hover:shadow-xl hover:shadow-indigo-600/20 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex items-center gap-2"
+                >
+                  <Search className="h-5 w-5" />
+                  Verify Another Drone
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-3xl mx-auto">
-            <div className="grid grid-cols-2 gap-8">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">Important Information</h3>
-                <ul className="space-y-2 text-sm text-slate-600">
-                  <li>• All drones must be registered as per aviation regulations</li>
-                  <li>• Keep your registration ID in a safe place</li>
-                  <li>• Update your information if any details change</li>
-                </ul>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-3">Legal Notice</h3>
-                <p className="text-sm text-slate-600">
-                  This verification system is part of the official drone registration database. 
-                  Personal information is protected and partially hidden for privacy reasons.
-                </p>
-              </div>
-            </div>
-            <div className="mt-8 pt-6 border-t border-slate-200">
-              <p className="text-center text-sm text-slate-500">
-                © {new Date().getFullYear()} Drone Registration Portal. All rights reserved.
-              </p>
-            </div>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 } 
