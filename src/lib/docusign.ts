@@ -115,23 +115,36 @@ class DocuSignService {
     `;
   }
 
-  async initiateSigningProcess(data: DroneSigningData, returnUrl: string) {
+  async initiateSigningProcess(data: DroneSigningData, returnUrl: string): Promise<SigningResponse> {
     try {
       console.log('Initiating signing process with data:', data);
       
+      // Store signer info for URL generation
+      this.currentSignerEmail = data.ownerEmail;
+      this.currentSignerName = data.ownerName;
+      
       // Create the envelope and send for signing
-      const { envelopeId, status, message } = await this.createSigningRequest({
+      const response = await this.createSigningRequest({
         ...data,
         documentHtml: this.createDocumentHtml(data)
       });
       
-      console.log('Envelope created:', { envelopeId, status, message, registrationId: data.registrationId });
+      console.log('Envelope created:', { 
+        envelopeId: response.envelopeId, 
+        status: response.status, 
+        message: response.message, 
+        registrationId: response.registrationId 
+      });
+
+      if (!response.registrationId) {
+        throw new Error('No registration ID received from DocuSign service');
+      }
 
       return {
-        envelopeId,
-        status,
-        message,
-        registrationId: data.registrationId // Always return the provided registration ID
+        envelopeId: response.envelopeId,
+        status: response.status,
+        message: response.message,
+        registrationId: response.registrationId
       };
     } catch (error) {
       console.error('Detailed error in signing process:', error);

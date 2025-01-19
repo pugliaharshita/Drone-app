@@ -152,7 +152,7 @@ class DocuSignService {
         routingOrder: '1',
         emailNotification: {
           emailSubject: 'Please sign your drone registration certificate',
-          emailBody: `Please sign your drone registration certificate. Your registration ID is: ${data.registrationId || registrationId}`,
+          emailBody: `Please sign your drone registration certificate. Your registration ID is: ${registrationId}`,
           supportedLanguage: 'en'
         }
       });
@@ -232,7 +232,7 @@ class DocuSignService {
         envelopeId: results.envelopeId,
         status: results.status,
         message: `An email has been sent to ${ownerEmail} for signing.`,
-        registrationId: data.registrationId || registrationId // Return the original registration ID if provided
+        registrationId // Return the registration ID used in the document
       };
     } catch (error) {
       console.error('Error creating envelope:', error);
