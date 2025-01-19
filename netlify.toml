@@ -1,6 +1,7 @@
 [build]
   base = "backend"
   command = "npm install"
+  publish = "public"
 
 [functions]
   directory = "src"
@@ -8,5 +9,5 @@
 
 [[redirects]]
   from = "/*"
-  to = "/index.js"
+  to = "/.netlify/functions/index"
   status = 200 
