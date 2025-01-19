@@ -11,22 +11,32 @@ const supabaseAdmin = createClient(
 
 // CORS headers middleware
 const corsHeaders = {
-  'Access-Control-Allow-Origin': 'http://localhost:5173',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+  'Access-Control-Allow-Origin': '*',  // Allow all origins in development
+  'Access-Control-Allow-Methods': '*',
+  'Access-Control-Allow-Headers': '*',
+  'Access-Control-Max-Age': '86400',  // 24 hours
   'Access-Control-Allow-Credentials': 'true'
 };
 
-// Handle OPTIONS requests
+// Handle preflight requests
 router.options('*', (req, res) => {
-  res.set(corsHeaders).status(204).send();
+  // Set CORS headers
+  Object.keys(corsHeaders).forEach(key => {
+    res.setHeader(key, corsHeaders[key]);
+  });
+  res.status(204).send();
+});
+
+// Middleware to set CORS headers for all routes
+router.use((req, res, next) => {
+  Object.keys(corsHeaders).forEach(key => {
+    res.setHeader(key, corsHeaders[key]);
+  });
+  next();
 });
 
 // Create envelope and get signing URL
 router.post('/create-envelope', async (req, res) => {
-  // Add CORS headers
-  res.set(corsHeaders);
-
   try {
     const data = req.body;
     const result = await docuSignService.createEnvelope(data);
