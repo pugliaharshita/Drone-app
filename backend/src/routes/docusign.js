@@ -6,7 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 // Create a Supabase client with the service role key for admin access
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_KEY
 );
 
 // Create envelope and get signing URL
