@@ -154,6 +154,52 @@ class DocuSignService {
       throw error;
     }
   }
+
+  async downloadDocument(envelopeId: string): Promise<void> {
+    try {
+      console.log('Downloading document for envelope:', envelopeId);
+      
+      const response = await fetch(
+        `${API_BASE_URL}/api/docusign/download-document/${envelopeId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error downloading document:', errorData);
+        throw new Error(errorData.message || 'Failed to download document');
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+      
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary link element
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `drone_registration_${envelopeId}.pdf`;
+      
+      // Append to body, click and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Clean up the URL
+      window.URL.revokeObjectURL(url);
+      
+      console.log('Document downloaded successfully');
+    } catch (error) {
+      console.error('Error in downloadDocument:', error);
+      throw error;
+    }
+  }
 }
 
 export const docuSignService = new DocuSignService(); 

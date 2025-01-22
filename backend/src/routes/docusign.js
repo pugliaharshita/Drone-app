@@ -236,4 +236,30 @@ router.post('/webhook', async (req, res) => {
   }
 });
 
+// Download envelope document
+router.get('/download-document/:envelopeId', async (req, res) => {
+  try {
+    const { envelopeId } = req.params;
+    
+    console.log('Downloading document for envelope:', envelopeId);
+
+    if (!envelopeId) {
+      return res.status(400).json({ message: 'Envelope ID is required' });
+    }
+
+    const docusignService = new docuSignService();
+    const documentBuffer = await docusignService.downloadDocument(envelopeId);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="drone_registration_${envelopeId}.pdf"`);
+    res.send(documentBuffer);
+  } catch (error) {
+    console.error('Error downloading document:', error);
+    res.status(500).json({ 
+      message: 'Failed to download document',
+      error: error.message 
+    });
+  }
+});
+
 module.exports = router; 

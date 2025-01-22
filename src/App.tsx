@@ -1000,10 +1000,19 @@ function App() {
                           {selectedDrone.purpose}
                         </span>
                         {selectedDrone.docusign_status === 'completed' ? (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700 border border-green-100">
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Signed
-                          </span>
+                          <>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-50 text-green-700 border border-green-100">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              Signed
+                            </span>
+                            <button
+                              onClick={() => docuSignService.downloadDocument(selectedDrone.docusign_envelope_id)}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors"
+                            >
+                              <Download className="w-4 h-4 mr-1" />
+                              Download Document
+                            </button>
+                          </>
                         ) : selectedDrone.docusign_status === 'sent' ? (
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">
                             <Clock className="w-4 h-4 mr-1" />

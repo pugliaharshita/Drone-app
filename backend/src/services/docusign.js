@@ -342,7 +342,7 @@ class DocuSignService {
         status: 'sent',
         emailSettings: {
           replyEmailNameOverride: 'Drone Registration System',
-          replyEmailAddressOverride: process.env.DOCUSIGN_REPLY_TO || '',
+          replyEmailAddressOverride: '',
           bccEmailAddresses: [],
           emailSubjectOverride: 'Drone Registration Certificate - Action Required',
           emailBodyOverride: [
@@ -448,6 +448,41 @@ class DocuSignService {
         console.error('Error response body:', error.response.body);
       }
       throw new Error(error.message || 'Failed to create signing URL');
+    }
+  }
+
+  async downloadDocument(envelopeId) {
+    try {
+      const accessToken = await this.getAccessToken();
+      this.apiClient.addDefaultHeader('Authorization', 'Bearer ' + accessToken);
+      
+      const envelopesApi = new docusign.EnvelopesApi(this.apiClient);
+      
+      console.log('Getting documents for envelope:', envelopeId);
+
+      // Get list of documents in the envelope
+      const documents = await envelopesApi.listDocuments(this.accountId, envelopeId);
+      
+      if (!documents || !documents.envelopeDocuments || documents.envelopeDocuments.length === 0) {
+        throw new Error('No documents found in envelope');
+      }
+
+      // Get the combined document (includes all documents in the envelope)
+      const documentBuffer = await envelopesApi.getDocument(
+        this.accountId,
+        envelopeId,
+        'combined',
+        { encoding: null }
+      );
+
+      console.log('Successfully downloaded document');
+      return documentBuffer;
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      if (error.response && error.response.body) {
+        console.error('Error response body:', error.response.body);
+      }
+      throw new Error(error.message || 'Failed to download document');
     }
   }
 }
