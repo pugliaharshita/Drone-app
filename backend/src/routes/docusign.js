@@ -12,8 +12,26 @@ const supabaseAdmin = createClient(
 // Create envelope and get signing URL
 router.post('/create-envelope', async (req, res) => {
   try {
-    const data = req.body;
-    const result = await docuSignService.createEnvelope(data);
+    const {
+      templateId,
+      signerEmail,
+      signerName,
+      registrationId,
+      templateData
+    } = req.body;
+
+    if (!templateId || !signerEmail || !signerName || !templateData) {
+      throw new Error('Missing required template data');
+    }
+
+    const result = await docuSignService.createEnvelopeFromTemplate({
+      templateId,
+      signerEmail,
+      signerName,
+      registrationId,
+      templateData
+    });
+    
     res.json(result);
   } catch (error) {
     console.error('Error creating envelope:', error);

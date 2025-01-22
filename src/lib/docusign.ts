@@ -9,7 +9,6 @@ interface DroneSigningData {
   ownerName: string;
   ownerEmail: string;
   pilotLicense: string;
-  documentHtml?: string;
   registrationId?: string;
 }
 
@@ -25,37 +24,27 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
-    console.log('Raw data received:', data);
-
-    // Ensure we have required data
-    if (!data.ownerEmail || !data.ownerName) {
-      throw new Error('Missing required signer information');
-    }
-
-    // Format the data for the template
-    const formattedData = {
-      templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
-      signer: {
-        email: data.ownerEmail,
-        name: data.ownerName,
-        recipientId: '1',
-        routingOrder: '1'
-      },
-      manufacturer: data.manufacturer,
-      model: data.model,
-      serialNumber: data.serialNumber,
-      pilotLicense: data.pilotLicense,
-      registrationId: data.registrationId
-    };
-
-    console.log('Sending formatted data to create envelope:', formattedData);
-
     const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(formattedData)
+      body: JSON.stringify({
+        templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
+        signerEmail: data.ownerEmail,
+        signerName: data.ownerName,
+        registrationId: data.registrationId,
+        templateData: {
+          droneId: data.droneId,
+          manufacturer: data.manufacturer,
+          model: data.model,
+          serialNumber: data.serialNumber,
+          ownerName: data.ownerName,
+          ownerEmail: data.ownerEmail,
+          pilotLicense: data.pilotLicense,
+          registrationDate: new Date().toLocaleDateString()
+        }
+      })
     });
 
     if (!response.ok) {
@@ -103,7 +92,7 @@ class DocuSignService {
       this.currentSignerEmail = data.ownerEmail;
       this.currentSignerName = data.ownerName;
       
-      // Create the envelope using template and send for signing
+      // Create the envelope using template
       const response = await this.createSigningRequest(data);
       
       console.log('Envelope created:', { 
