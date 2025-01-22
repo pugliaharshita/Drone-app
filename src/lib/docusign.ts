@@ -164,22 +164,34 @@ class DocuSignService {
         {
           method: 'GET',
           headers: {
-            'Accept': 'application/pdf'
+            'Accept': 'application/pdf, application/octet-stream'
           }
         }
       );
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error downloading document:', errorText);
-        throw new Error(errorText || 'Failed to download document');
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || 'Failed to download document';
+        } catch {
+          errorMessage = await response.text() || 'Failed to download document';
+        }
+        console.error('Error downloading document:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       // Get the blob directly from the response
       const blob = await response.blob();
       
+      if (blob.size === 0) {
+        throw new Error('Received empty document from server');
+      }
+
       // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: 'application/pdf' })
+      );
       
       // Create a temporary link element
       const link = document.createElement('a');
