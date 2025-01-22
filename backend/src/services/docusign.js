@@ -240,7 +240,7 @@ class DocuSignService {
     }
   }
 
-  async createEnvelopeFromTemplate({ templateId, signerEmail, signerName, registrationId, templateData }) {
+  async createEnvelopeFromTemplate({ templateId, signerEmail, signerName, roleName, registrationId, templateData }) {
     try {
       const accessToken = await this.getAccessToken();
       this.apiClient.addDefaultHeader('Authorization', 'Bearer ' + accessToken);
@@ -250,13 +250,14 @@ class DocuSignService {
       // Use existing registration ID if provided, otherwise generate a new one
       const finalRegistrationId = registrationId || this.generateRegistrationId();
 
-      console.log('Creating envelope from template for:', { signerEmail, signerName, finalRegistrationId });
+      console.log('Creating envelope from template for:', { signerEmail, signerName, roleName, finalRegistrationId });
 
       // Create the template role
       const templateRole = docusign.TemplateRole.constructFromObject({
         email: signerEmail,
         name: signerName,
-        roleName: 'signer',
+        roleName: roleName,
+        clientUserId: '1001', // Add this to ensure consistent recipient ID
         tabs: {
           textTabs: [
             {

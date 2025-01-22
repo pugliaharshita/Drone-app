@@ -24,86 +24,41 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
-    // Log incoming data
-    console.log('Raw signing data received:', data);
-    
-    // Validate email specifically
-    if (!data.ownerEmail) {
-      console.error('Owner email is missing from signing data');
-      throw new Error('Owner email is required');
+    const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
+        signerEmail: data.ownerEmail,
+        signerName: data.ownerName,
+        roleName: 'signer',
+        registrationId: data.registrationId,
+        templateData: {
+          droneId: data.droneId,
+          manufacturer: data.manufacturer,
+          model: data.model,
+          serialNumber: data.serialNumber,
+          ownerName: data.ownerName,
+          ownerEmail: data.ownerEmail,
+          pilotLicense: data.pilotLicense,
+          registrationDate: new Date().toLocaleDateString()
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('DocuSign error details:', errorData);
+      throw new Error(errorData.message || `Failed to create signing request: ${response.statusText}`);
     }
 
-    // Validate all required fields
-    const requiredFields = [
-      'ownerEmail',
-      'ownerName',
-      'manufacturer',
-      'model',
-      'serialNumber',
-      'pilotLicense'
-    ];
-
-    const missingFields = requiredFields.filter(field => !data[field as keyof DroneSigningData]);
-    if (missingFields.length > 0) {
-      console.error('Missing required fields:', missingFields);
-      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
-    }
-
-    const requestBody = {
-      templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
-      signerEmail: data.ownerEmail.trim(),
-      signerName: data.ownerName.trim(),
-      registrationId: data.registrationId,
-      templateData: {
-        droneId: data.droneId,
-        manufacturer: data.manufacturer,
-        model: data.model,
-        serialNumber: data.serialNumber,
-        ownerName: data.ownerName,
-        ownerEmail: data.ownerEmail,
-        pilotLicense: data.pilotLicense,
-        registrationDate: new Date().toLocaleDateString()
-      }
-    };
-
-    // Log the prepared request body
-    console.log('Prepared request body:', requestBody);
-
-    try {
-      console.log('Sending request to:', `${API_BASE_URL}/api/docusign/create-envelope`);
-      
-      const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('DocuSign error response:', errorData);
-        throw new Error(errorData.message || `Failed to create signing request: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('Signing request successful:', result);
-      return result;
-    } catch (error) {
-      console.error('Error in createSigningRequest:', error);
-      throw error;
-    }
+    const result = await response.json();
+    return result;
   }
 
   private async getSigningUrl(envelopeId: string, returnUrl: string) {
-    // Log signing URL request
-    console.log('Getting signing URL for:', {
-      envelopeId,
-      returnUrl,
-      signerEmail: this.currentSignerEmail,
-      signerName: this.currentSignerName
-    });
-
     const response = await fetch(
       `${API_BASE_URL}/api/docusign/signing-url`,
       {
@@ -122,18 +77,17 @@ class DocuSignService {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('DocuSign signing URL error:', errorData);
+      console.error('DocuSign error details:', errorData);
       throw new Error(errorData.message || `Failed to get signing URL: ${response.statusText}`);
     }
 
     const result = await response.json();
-    console.log('Got signing URL:', result);
     return result.url;
   }
 
   async initiateSigningProcess(data: DroneSigningData, returnUrl: string): Promise<SigningResponse> {
     try {
-      console.log('Initiating signing process with data:', JSON.stringify(data, null, 2));
+      console.log('Initiating signing process with data:', data);
       
       // Store signer info for URL generation
       this.currentSignerEmail = data.ownerEmail;
