@@ -318,16 +318,25 @@ class DocuSignService {
       // Create the envelope definition
       const envelopeDefinition = docusign.EnvelopeDefinition.constructFromObject({
         emailSubject: 'Drone Registration Certificate - Action Required',
-        emailBlurb: `Dear ${signerName},\n\n` +
-          'Your drone registration document is ready for your review and signature. ' +
-          'This document is required to complete the registration process for your drone.\n\n' +
-          'Registration Details:\n' +
-          `- Registration ID: ${finalRegistrationId}\n` +
-          `- Drone: ${templateData.manufacturer} ${templateData.model}\n` +
-          `- Serial Number: ${templateData.serialNumber}\n\n` +
-          'Please review all information carefully before signing. ' +
-          'If you find any discrepancies, please contact our support team.\n\n' +
+        emailBlurb: [
+          `Dear ${signerName},`,
+          '',
+          'Your drone registration document is ready for your review and signature.',
+          'This document is required to complete the registration process for your drone.',
+          '',
+          'Registration Details:',
+          `Registration ID: ${finalRegistrationId}`,
+          `Drone: ${templateData.manufacturer} ${templateData.model}`,
+          `Serial Number: ${templateData.serialNumber}`,
+          '',
+          'Please review all information carefully before signing.',
+          'If you find any discrepancies, please contact our support team.',
+          '',
           'Note: This document will expire in 14 days if not signed.',
+          '',
+          'Best regards,',
+          'Drone Registration Team'
+        ].join('\r\n'),
         templateId: templateId,
         templateRoles: [templateRole],
         status: 'sent',
