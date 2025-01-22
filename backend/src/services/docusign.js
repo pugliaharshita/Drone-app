@@ -252,45 +252,60 @@ class DocuSignService {
 
       console.log('Creating envelope from template for:', { signerEmail, signerName, roleName, finalRegistrationId });
 
-      // Create the template role
+      // Create the template role with recipient info
       const templateRole = docusign.TemplateRole.constructFromObject({
         email: signerEmail,
         name: signerName,
-        roleName: roleName,
+        roleName: roleName || 'signer',
+        recipientId: '1',
+        routingOrder: '1',
         clientUserId: '1001', // Add this to ensure consistent recipient ID
+        emailNotification: {
+          emailSubject: 'Please sign your drone registration certificate',
+          emailBody: `Please sign your drone registration certificate. Your registration ID is: ${finalRegistrationId}`,
+          supportedLanguage: 'en'
+        },
         tabs: {
           textTabs: [
             {
               tabLabel: 'registration_id',
-              value: finalRegistrationId
+              value: finalRegistrationId,
+              locked: 'true'
             },
             {
               tabLabel: 'registration_date',
-              value: templateData.registrationDate
+              value: templateData.registrationDate,
+              locked: 'true'
             },
             {
               tabLabel: 'manufacturer',
-              value: templateData.manufacturer
+              value: templateData.manufacturer,
+              locked: 'true'
             },
             {
               tabLabel: 'model',
-              value: templateData.model
+              value: templateData.model,
+              locked: 'true'
             },
             {
               tabLabel: 'serial_number',
-              value: templateData.serialNumber
+              value: templateData.serialNumber,
+              locked: 'true'
             },
             {
               tabLabel: 'owner_name',
-              value: templateData.ownerName
+              value: templateData.ownerName,
+              locked: 'true'
             },
             {
               tabLabel: 'owner_email',
-              value: templateData.ownerEmail
+              value: templateData.ownerEmail,
+              locked: 'true'
             },
             {
               tabLabel: 'pilot_license',
-              value: templateData.pilotLicense
+              value: templateData.pilotLicense,
+              locked: 'true'
             }
           ]
         }
@@ -329,7 +344,20 @@ class DocuSignService {
         templateId: templateId,
         templateRoles: [templateRole],
         eventNotification: eventNotification,
-        status: 'sent'  // Send immediately
+        status: 'sent',  // Send immediately
+        notification: {
+          useAccountDefaults: 'false',
+          reminders: {
+            reminderEnabled: 'true',
+            reminderDelay: '2',
+            reminderFrequency: '2'
+          },
+          expirations: {
+            expireEnabled: 'true',
+            expireAfter: '14',
+            expireWarn: '3'
+          }
+        }
       });
 
       console.log('Creating envelope with definition:', JSON.stringify(envelopeDefinition, null, 2));
