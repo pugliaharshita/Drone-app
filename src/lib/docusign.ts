@@ -164,7 +164,7 @@ class DocuSignService {
         {
           method: 'GET',
           headers: {
-            'Accept': 'application/pdf, application/octet-stream'
+            'Accept': 'application/pdf'
           }
         }
       );
@@ -181,17 +181,18 @@ class DocuSignService {
         throw new Error(errorMessage);
       }
 
-      // Get the blob directly from the response
-      const blob = await response.blob();
+      // Get the array buffer from the response
+      const arrayBuffer = await response.arrayBuffer();
       
-      if (blob.size === 0) {
+      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
         throw new Error('Received empty document from server');
       }
 
+      // Create a blob from the array buffer
+      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      
       // Create a URL for the blob
-      const url = window.URL.createObjectURL(
-        new Blob([blob], { type: 'application/pdf' })
-      );
+      const url = window.URL.createObjectURL(blob);
       
       // Create a temporary link element
       const link = document.createElement('a');

@@ -471,14 +471,18 @@ class DocuSignService {
       const response = await envelopesApi.getDocument(
         this.accountId,
         envelopeId,
-        'combined',
-        { responseType: 'arraybuffer' }  // Ensure we get binary data
+        'combined'
       );
 
-      // Convert response to buffer if it's not already
-      const buffer = Buffer.isBuffer(response) ? response : Buffer.from(response);
+      // Ensure we have a buffer
+      const buffer = Buffer.from(response);
 
-      console.log('Successfully downloaded document');
+      // Verify buffer is not empty
+      if (!buffer || buffer.length === 0) {
+        throw new Error('Received empty document from DocuSign');
+      }
+
+      console.log('Successfully downloaded document, size:', buffer.length);
       return buffer;
     } catch (error) {
       console.error('Error downloading document:', error);
