@@ -12,6 +12,8 @@ const supabaseAdmin = createClient(
 // Create envelope and get signing URL
 router.post('/create-envelope', async (req, res) => {
   try {
+    console.log('Received create-envelope request:', req.body);
+
     const {
       templateId,
       signerEmail,
@@ -20,9 +22,44 @@ router.post('/create-envelope', async (req, res) => {
       templateData
     } = req.body;
 
-    if (!templateId || !signerEmail || !signerName || !templateData) {
-      throw new Error('Missing required template data');
+    // Validate all required fields
+    if (!templateId) {
+      throw new Error('Template ID is required');
     }
+    if (!signerEmail) {
+      throw new Error('Signer email is required');
+    }
+    if (!signerName) {
+      throw new Error('Signer name is required');
+    }
+    if (!templateData) {
+      throw new Error('Template data is required');
+    }
+
+    // Validate template data fields
+    const requiredTemplateFields = [
+      'droneId',
+      'manufacturer',
+      'model',
+      'serialNumber',
+      'ownerName',
+      'ownerEmail',
+      'pilotLicense',
+      'registrationDate'
+    ];
+
+    const missingFields = requiredTemplateFields.filter(field => !templateData[field]);
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required template fields: ${missingFields.join(', ')}`);
+    }
+
+    console.log('Creating envelope with validated data:', {
+      templateId,
+      signerEmail,
+      signerName,
+      registrationId,
+      templateData
+    });
 
     const result = await docuSignService.createEnvelopeFromTemplate({
       templateId,
@@ -32,10 +69,14 @@ router.post('/create-envelope', async (req, res) => {
       templateData
     });
     
+    console.log('Envelope created successfully:', result);
     res.json(result);
   } catch (error) {
     console.error('Error creating envelope:', error);
-    res.status(500).json({ message: error.message || 'Failed to create envelope' });
+    res.status(500).json({ 
+      message: error.message || 'Failed to create envelope',
+      details: error.details || error.stack
+    });
   }
 });
 
