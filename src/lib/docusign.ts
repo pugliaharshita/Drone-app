@@ -41,11 +41,11 @@ class DocuSignService {
         recipientId: '1',
         routingOrder: '1'
       },
-      registrationId: data.registrationId,
       manufacturer: data.manufacturer,
       model: data.model,
       serialNumber: data.serialNumber,
-      pilotLicense: data.pilotLicense
+      pilotLicense: data.pilotLicense,
+      registrationId: data.registrationId
     };
 
     console.log('Sending formatted data to create envelope:', formattedData);
