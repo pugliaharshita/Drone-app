@@ -128,16 +128,6 @@ class DocuSignService {
       // Use existing registration ID if provided, otherwise generate a new one
       const registrationId = data.registrationId || this.generateRegistrationId();
       
-      // Create the document with registration ID
-      const doc = new docusign.Document();
-      const documentHtml = data.documentHtml.includes('${registrationId}') 
-        ? data.documentHtml.replace('${registrationId}', registrationId)
-        : data.documentHtml;
-      doc.documentBase64 = Buffer.from(documentHtml).toString('base64');
-      doc.name = 'Drone Registration Certificate';
-      doc.fileExtension = 'html';
-      doc.documentId = '1';
-
       // Store owner info for consistent use
       const ownerEmail = data.ownerEmail;
       const ownerName = data.ownerName;
@@ -150,36 +140,36 @@ class DocuSignService {
         name: ownerName,
         recipientId: '1',
         routingOrder: '1',
+        roleName: 'signer', // Keep role name for template mapping
         emailNotification: {
           emailSubject: 'Please sign your drone registration certificate',
           emailBody: `Please sign your drone registration certificate. Your registration ID is: ${registrationId}`,
           supportedLanguage: 'en'
+        },
+        tabs: {
+          textTabs: [
+            {
+              tabLabel: 'registrationId',
+              value: registrationId
+            },
+            {
+              tabLabel: 'manufacturer',
+              value: data.manufacturer
+            },
+            {
+              tabLabel: 'model',
+              value: data.model
+            },
+            {
+              tabLabel: 'serialNumber',
+              value: data.serialNumber
+            },
+            {
+              tabLabel: 'pilotLicense',
+              value: data.pilotLicense
+            }
+          ]
         }
-      });
-
-      // Create signature and date tabs
-      const signHere = docusign.SignHere.constructFromObject({
-        anchorString: '${signHere}',
-        anchorXOffset: '0',
-        anchorYOffset: '0',
-        anchorUnits: 'pixels',
-        recipientId: '1',
-        tabLabel: 'SignHereTab'
-      });
-
-      const dateTab = docusign.DateSigned.constructFromObject({
-        anchorString: '${date}',
-        anchorXOffset: '0',
-        anchorYOffset: '0',
-        anchorUnits: 'pixels',
-        recipientId: '1',
-        tabLabel: 'DateSignedTab'
-      });
-
-      // Add the tabs to the signer
-      signer.tabs = docusign.Tabs.constructFromObject({
-        signHereTabs: [signHere],
-        dateSignedTabs: [dateTab]
       });
 
       // Configure webhook notification
@@ -208,16 +198,28 @@ class DocuSignService {
         ]
       });
 
-      // Create the envelope definition
+      // Create the envelope definition using the template
       const envelopeDefinition = docusign.EnvelopeDefinition.constructFromObject({
+        templateId: data.templateId,
+        status: 'sent',  // Send immediately
         emailSubject: 'Drone Registration Certificate - Signature Required',
-        emailBlurb: 'Please review and sign your drone registration certificate.',
-        documents: [doc],
-        recipients: docusign.Recipients.constructFromObject({
+        emailBlurb: `Please review and sign your drone registration certificate. Your registration ID is: ${registrationId}`,
+        notification: {
+          useAccountDefaults: false,
+          reminders: {
+            reminderEnabled: true,
+            reminderDelay: 2,
+            reminderFrequency: 2
+          },
+          expirations: {
+            expireEnabled: true,
+            expireAfter: 30,
+            expireWarn: 5
+          }
+        },
+        recipients: {
           signers: [signer]
-        }),
-        eventNotification: eventNotification,
-        status: 'sent'  // Send immediately
+        }
       });
 
       console.log('Creating envelope with definition:', JSON.stringify(envelopeDefinition, null, 2));
