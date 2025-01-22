@@ -340,6 +340,31 @@ class DocuSignService {
         templateId: templateId,
         templateRoles: [templateRole],
         status: 'sent',
+        emailSettings: {
+          replyEmailNameOverride: 'Drone Registration System',
+          replyEmailAddressOverride: process.env.DOCUSIGN_REPLY_TO || '',
+          bccEmailAddresses: [],
+          emailSubjectOverride: 'Drone Registration Certificate - Action Required',
+          emailBodyOverride: [
+            `Dear ${signerName},`,
+            '',
+            'Your drone registration document is ready for your review and signature.',
+            'This document is required to complete the registration process for your drone.',
+            '',
+            'Registration Details:',
+            `Registration ID: ${finalRegistrationId}`,
+            `Drone: ${templateData.manufacturer} ${templateData.model}`,
+            `Serial Number: ${templateData.serialNumber}`,
+            '',
+            'Please review all information carefully before signing.',
+            'If you find any discrepancies, please contact our support team.',
+            '',
+            'Note: This document will expire in 14 days if not signed.',
+            '',
+            'Best regards,',
+            'Drone Registration Team'
+          ].join('\r\n')
+        },
         notification: {
           useAccountDefaults: 'false',
           reminders: {
