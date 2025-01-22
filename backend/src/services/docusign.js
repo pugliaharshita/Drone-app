@@ -127,49 +127,25 @@ class DocuSignService {
       
       // Use existing registration ID if provided, otherwise generate a new one
       const registrationId = data.registrationId || this.generateRegistrationId();
-      
-      // Store owner info for consistent use
-      const ownerEmail = data.ownerEmail;
-      const ownerName = data.ownerName;
 
-      console.log('Creating envelope for owner:', { ownerEmail, ownerName, registrationId });
+      console.log('Creating envelope with template:', {
+        templateId: data.templateId,
+        signer: data.signer,
+        tabs: data.tabs
+      });
 
-      // Create the signer recipient with owner info
-      const signer = docusign.Signer.constructFromObject({
-        email: ownerEmail,
-        name: ownerName,
-        recipientId: '1',
-        routingOrder: '1',
-        roleName: 'signer', // Keep role name for template mapping
+      // Create the signer recipient
+      const signer = docusign.TemplateRole.constructFromObject({
+        email: data.signer.email,
+        name: data.signer.name,
+        roleName: 'signer',
+        clientUserId: data.signer.recipientId,
         emailNotification: {
           emailSubject: 'Please sign your drone registration certificate',
           emailBody: `Please sign your drone registration certificate. Your registration ID is: ${registrationId}`,
           supportedLanguage: 'en'
         },
-        tabs: {
-          textTabs: [
-            {
-              tabLabel: 'registrationId',
-              value: registrationId
-            },
-            {
-              tabLabel: 'manufacturer',
-              value: data.manufacturer
-            },
-            {
-              tabLabel: 'model',
-              value: data.model
-            },
-            {
-              tabLabel: 'serialNumber',
-              value: data.serialNumber
-            },
-            {
-              tabLabel: 'pilotLicense',
-              value: data.pilotLicense
-            }
-          ]
-        }
+        tabs: data.tabs
       });
 
       // Configure webhook notification
@@ -201,9 +177,11 @@ class DocuSignService {
       // Create the envelope definition using the template
       const envelopeDefinition = docusign.EnvelopeDefinition.constructFromObject({
         templateId: data.templateId,
+        templateRoles: [signer],
         status: 'sent',  // Send immediately
         emailSubject: 'Drone Registration Certificate - Signature Required',
         emailBlurb: `Please review and sign your drone registration certificate. Your registration ID is: ${registrationId}`,
+        eventNotification,
         notification: {
           useAccountDefaults: false,
           reminders: {
@@ -216,9 +194,6 @@ class DocuSignService {
             expireAfter: 30,
             expireWarn: 5
           }
-        },
-        recipients: {
-          signers: [signer]
         }
       });
 
@@ -233,7 +208,7 @@ class DocuSignService {
       return {
         envelopeId: results.envelopeId,
         status: results.status,
-        message: `An email has been sent to ${ownerEmail} for signing.`,
+        message: `An email has been sent to ${data.signer.email} for signing.`,
         registrationId // Return the registration ID used in the document
       };
     } catch (error) {

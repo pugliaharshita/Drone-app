@@ -25,15 +25,49 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
+    // Format the data for the template
+    const formattedData = {
+      templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
+      signer: {
+        email: data.ownerEmail,
+        name: data.ownerName,
+        recipientId: '1',
+        routingOrder: '1'
+      },
+      tabs: {
+        textTabs: [
+          {
+            tabLabel: 'registrationId',
+            value: data.registrationId || ''
+          },
+          {
+            tabLabel: 'manufacturer',
+            value: data.manufacturer
+          },
+          {
+            tabLabel: 'model',
+            value: data.model
+          },
+          {
+            tabLabel: 'serialNumber',
+            value: data.serialNumber
+          },
+          {
+            tabLabel: 'pilotLicense',
+            value: data.pilotLicense
+          }
+        ]
+      }
+    };
+
+    console.log('Sending formatted data to create envelope:', formattedData);
+
     const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...data,
-        templateId: '5981d32d-f138-4cb3-9133-cc562830177b'
-      })
+      body: JSON.stringify(formattedData)
     });
 
     if (!response.ok) {
