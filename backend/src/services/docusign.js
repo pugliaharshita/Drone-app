@@ -269,7 +269,6 @@ class DocuSignService {
         email: signerEmail,
         name: signerName,
         roleName: roleName,
-        clientUserId: '1001',
         tabs: {
           textTabs: [
             {
@@ -350,7 +349,7 @@ class DocuSignService {
       return {
         envelopeId: results.envelopeId,
         status: results.status,
-        message: 'Envelope created successfully',
+        message: `An email has been sent to ${signerEmail} for signing.`,
         registrationId: finalRegistrationId
       };
     } catch (error) {
