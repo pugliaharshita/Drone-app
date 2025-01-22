@@ -26,6 +26,14 @@ class DocuSignService {
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
     // Validate required data
     if (!data.ownerEmail || !data.ownerName || !data.manufacturer || !data.model || !data.serialNumber || !data.pilotLicense) {
+      console.error('Missing required data:', {
+        ownerEmail: !!data.ownerEmail,
+        ownerName: !!data.ownerName,
+        manufacturer: !!data.manufacturer,
+        model: !!data.model,
+        serialNumber: !!data.serialNumber,
+        pilotLicense: !!data.pilotLicense
+      });
       throw new Error('Missing required template data: All fields must be provided');
     }
 
@@ -40,31 +48,45 @@ class DocuSignService {
       registrationDate: new Date().toLocaleDateString()
     };
 
-    console.log('Sending template data:', templateData);
-
-    const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
-        signerEmail: data.ownerEmail,
-        signerName: data.ownerName,
-        roleName: 'signer',
-        registrationId: data.registrationId,
-        templateData
-      })
+    console.log('Creating signing request with data:', {
+      templateData,
+      signerEmail: data.ownerEmail,
+      signerName: data.ownerName
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('DocuSign error details:', errorData);
-      throw new Error(errorData.message || `Failed to create signing request: ${response.statusText}`);
-    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
+          signerEmail: data.ownerEmail,
+          signerName: data.ownerName,
+          roleName: 'signer',
+          registrationId: data.registrationId,
+          templateData
+        })
+      });
 
-    const result = await response.json();
-    return result;
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('DocuSign API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        throw new Error(errorData.message || `Failed to create signing request: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('Signing request created successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('Error in createSigningRequest:', error);
+      throw error;
+    }
   }
 
   private async getSigningUrl(envelopeId: string, returnUrl: string) {
