@@ -24,33 +24,35 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
-    // Log the request data for debugging
-    console.log('Preparing signing request with data:', {
-      templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
-      signerEmail: data.ownerEmail,
-      signerName: data.ownerName,
-      registrationId: data.registrationId,
-      templateData: {
-        droneId: data.droneId,
-        manufacturer: data.manufacturer,
-        model: data.model,
-        serialNumber: data.serialNumber,
-        ownerName: data.ownerName,
-        ownerEmail: data.ownerEmail,
-        pilotLicense: data.pilotLicense,
-        registrationDate: new Date().toLocaleDateString()
-      }
-    });
+    // Log incoming data
+    console.log('Raw signing data received:', data);
+    
+    // Validate email specifically
+    if (!data.ownerEmail) {
+      console.error('Owner email is missing from signing data');
+      throw new Error('Owner email is required');
+    }
 
-    // Validate required fields
-    if (!data.ownerEmail || !data.ownerName || !data.manufacturer || !data.model || !data.serialNumber || !data.pilotLicense) {
-      throw new Error('Missing required fields in signing data');
+    // Validate all required fields
+    const requiredFields = [
+      'ownerEmail',
+      'ownerName',
+      'manufacturer',
+      'model',
+      'serialNumber',
+      'pilotLicense'
+    ];
+
+    const missingFields = requiredFields.filter(field => !data[field as keyof DroneSigningData]);
+    if (missingFields.length > 0) {
+      console.error('Missing required fields:', missingFields);
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
 
     const requestBody = {
       templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
-      signerEmail: data.ownerEmail,
-      signerName: data.ownerName,
+      signerEmail: data.ownerEmail.trim(),
+      signerName: data.ownerName.trim(),
       registrationId: data.registrationId,
       templateData: {
         droneId: data.droneId,
@@ -64,7 +66,12 @@ class DocuSignService {
       }
     };
 
+    // Log the prepared request body
+    console.log('Prepared request body:', requestBody);
+
     try {
+      console.log('Sending request to:', `${API_BASE_URL}/api/docusign/create-envelope`);
+      
       const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
         method: 'POST',
         headers: {
@@ -75,7 +82,7 @@ class DocuSignService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('DocuSign error details:', errorData);
+        console.error('DocuSign error response:', errorData);
         throw new Error(errorData.message || `Failed to create signing request: ${response.statusText}`);
       }
 
@@ -89,6 +96,14 @@ class DocuSignService {
   }
 
   private async getSigningUrl(envelopeId: string, returnUrl: string) {
+    // Log signing URL request
+    console.log('Getting signing URL for:', {
+      envelopeId,
+      returnUrl,
+      signerEmail: this.currentSignerEmail,
+      signerName: this.currentSignerName
+    });
+
     const response = await fetch(
       `${API_BASE_URL}/api/docusign/signing-url`,
       {
@@ -107,17 +122,18 @@ class DocuSignService {
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('DocuSign error details:', errorData);
+      console.error('DocuSign signing URL error:', errorData);
       throw new Error(errorData.message || `Failed to get signing URL: ${response.statusText}`);
     }
 
     const result = await response.json();
+    console.log('Got signing URL:', result);
     return result.url;
   }
 
   async initiateSigningProcess(data: DroneSigningData, returnUrl: string): Promise<SigningResponse> {
     try {
-      console.log('Initiating signing process with data:', data);
+      console.log('Initiating signing process with data:', JSON.stringify(data, null, 2));
       
       // Store signer info for URL generation
       this.currentSignerEmail = data.ownerEmail;
