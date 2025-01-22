@@ -264,21 +264,12 @@ class DocuSignService {
       const envelopesApi = new docusign.EnvelopesApi(this.apiClient);
       const finalRegistrationId = registrationId || this.generateRegistrationId();
 
-      console.log('Creating envelope from template for:', { signerEmail, signerName, roleName, finalRegistrationId });
-
       // Configure the template role with locked values
       const templateRole = docusign.TemplateRole.constructFromObject({
         email: signerEmail,
         name: signerName,
         roleName: roleName,
         clientUserId: '1001',
-        recipientId: '1',
-        routingOrder: '1',
-        emailNotification: {
-          emailSubject: 'Please sign your drone registration document',
-          emailBody: 'Please review and sign the drone registration document. This is required to complete your registration process.',
-          supportedLanguage: 'en'
-        },
         tabs: {
           textTabs: [
             {
@@ -325,44 +316,6 @@ class DocuSignService {
         }
       });
 
-      // Configure notifications for the envelope
-      const notification = docusign.EventNotification.constructFromObject({
-        url: process.env.DOCUSIGN_WEBHOOK_URL,
-        loggingEnabled: 'true',
-        requireAcknowledgment: 'true',
-        useSoapInterface: 'false',
-        includeCertificateWithSoap: 'false',
-        signMessageWithX509Cert: 'false',
-        includeDocuments: 'false',
-        includeEnvelopeVoidReason: 'true',
-        includeTimeZone: 'true',
-        includeSenderAccountAsCustomField: 'true',
-        includeDocumentFields: 'true',
-        includeCertificateOfCompletion: 'true',
-        envelopeEvents: [
-          { envelopeEventStatusCode: 'sent' },
-          { envelopeEventStatusCode: 'delivered' },
-          { envelopeEventStatusCode: 'completed' },
-          { envelopeEventStatusCode: 'declined' },
-          { envelopeEventStatusCode: 'voided' }
-        ],
-        recipientEvents: [
-          { recipientEventStatusCode: 'Sent' },
-          { recipientEventStatusCode: 'Delivered' },
-          { recipientEventStatusCode: 'Completed' },
-          { recipientEventStatusCode: 'Declined' },
-          { recipientEventStatusCode: 'AuthenticationFailed' },
-          { recipientEventStatusCode: 'AutoResponded' }
-        ]
-      });
-
-      // Set up the envelope level email settings
-      const emailSettings = docusign.EmailSettings.constructFromObject({
-        replyEmailAddressOverride: process.env.DOCUSIGN_REPLY_TO || '',
-        replyEmailNameOverride: 'Drone Registration System',
-        bccEmailAddresses: []
-      });
-
       // Create the envelope definition
       const envelopeDefinition = docusign.EnvelopeDefinition.constructFromObject({
         emailSubject: 'Drone Registration Document for Signature',
@@ -370,8 +323,19 @@ class DocuSignService {
         templateId: templateId,
         templateRoles: [templateRole],
         status: 'sent',
-        eventNotification: notification,
-        emailSettings: emailSettings
+        notification: {
+          useAccountDefaults: 'false',
+          reminders: {
+            reminderEnabled: 'true',
+            reminderDelay: '2',
+            reminderFrequency: '2'
+          },
+          expirations: {
+            expireEnabled: 'true',
+            expireAfter: '14',
+            expireWarn: '3'
+          }
+        }
       });
 
       console.log('Sending envelope definition:', JSON.stringify(envelopeDefinition, null, 2));
