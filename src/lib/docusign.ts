@@ -24,6 +24,24 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
+    // Validate required data
+    if (!data.ownerEmail || !data.ownerName || !data.manufacturer || !data.model || !data.serialNumber || !data.pilotLicense) {
+      throw new Error('Missing required template data: All fields must be provided');
+    }
+
+    const templateData = {
+      droneId: data.droneId,
+      manufacturer: data.manufacturer,
+      model: data.model,
+      serialNumber: data.serialNumber,
+      ownerName: data.ownerName,
+      ownerEmail: data.ownerEmail,
+      pilotLicense: data.pilotLicense,
+      registrationDate: new Date().toLocaleDateString()
+    };
+
+    console.log('Sending template data:', templateData);
+
     const response = await fetch(`${API_BASE_URL}/api/docusign/create-envelope`, {
       method: 'POST',
       headers: {
@@ -35,16 +53,7 @@ class DocuSignService {
         signerName: data.ownerName,
         roleName: 'signer',
         registrationId: data.registrationId,
-        templateData: {
-          droneId: data.droneId,
-          manufacturer: data.manufacturer,
-          model: data.model,
-          serialNumber: data.serialNumber,
-          ownerName: data.ownerName,
-          ownerEmail: data.ownerEmail,
-          pilotLicense: data.pilotLicense,
-          registrationDate: new Date().toLocaleDateString()
-        }
+        templateData
       })
     });
 
@@ -59,6 +68,10 @@ class DocuSignService {
   }
 
   private async getSigningUrl(envelopeId: string, returnUrl: string) {
+    if (!this.currentSignerEmail || !this.currentSignerName) {
+      throw new Error('Signer information is missing');
+    }
+
     const response = await fetch(
       `${API_BASE_URL}/api/docusign/signing-url`,
       {
@@ -70,7 +83,8 @@ class DocuSignService {
           envelopeId,
           returnUrl,
           signerEmail: this.currentSignerEmail,
-          signerName: this.currentSignerName
+          signerName: this.currentSignerName,
+          clientUserId: '1001'
         })
       }
     );
