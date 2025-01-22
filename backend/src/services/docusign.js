@@ -468,15 +468,17 @@ class DocuSignService {
       }
 
       // Get the combined document (includes all documents in the envelope)
-      const documentBuffer = await envelopesApi.getDocument(
+      const response = await envelopesApi.getDocument(
         this.accountId,
         envelopeId,
-        'combined',
-        { encoding: null }
+        'combined'
       );
 
+      // Convert response to buffer
+      const buffer = Buffer.from(await response.arrayBuffer());
+
       console.log('Successfully downloaded document');
-      return documentBuffer;
+      return buffer;
     } catch (error) {
       console.error('Error downloading document:', error);
       if (error.response && error.response.body) {

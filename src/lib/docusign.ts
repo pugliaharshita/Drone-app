@@ -163,9 +163,6 @@ class DocuSignService {
         `${API_BASE_URL}/api/docusign/download-document/${envelopeId}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
         }
       );
 
@@ -179,7 +176,9 @@ class DocuSignService {
       const blob = await response.blob();
       
       // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: 'application/pdf' })
+      );
       
       // Create a temporary link element
       const link = document.createElement('a');
