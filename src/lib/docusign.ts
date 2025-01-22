@@ -164,7 +164,7 @@ class DocuSignService {
         {
           method: 'GET',
           headers: {
-            'Accept': 'application/pdf'
+            'Accept': 'application/pdf, application/octet-stream'
           }
         }
       );
@@ -181,6 +181,10 @@ class DocuSignService {
         throw new Error(errorMessage);
       }
 
+      // Get content type from response
+      const contentType = response.headers.get('content-type');
+      console.log('Response content type:', contentType);
+
       // Get the array buffer from the response
       const arrayBuffer = await response.arrayBuffer();
       
@@ -188,24 +192,29 @@ class DocuSignService {
         throw new Error('Received empty document from server');
       }
 
+      console.log('Received document size:', arrayBuffer.byteLength, 'bytes');
+
       // Create a blob from the array buffer
-      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const blob = new Blob([arrayBuffer], { 
+        type: contentType || 'application/pdf'
+      });
       
       // Create a URL for the blob
       const url = window.URL.createObjectURL(blob);
       
-      // Create a temporary link element
+      // Open PDF in new tab first
+      window.open(url, '_blank');
+
+      // Also trigger download
       const link = document.createElement('a');
       link.href = url;
       link.download = `drone_registration_${envelopeId}.pdf`;
-      
-      // Append to body, click and remove
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
       
-      // Clean up the URL
-      window.URL.revokeObjectURL(url);
+      // Clean up the URL after a short delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+      }, 1000);
       
       console.log('Document downloaded successfully');
     } catch (error) {

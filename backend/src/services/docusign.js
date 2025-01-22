@@ -471,19 +471,33 @@ class DocuSignService {
       const response = await envelopesApi.getDocument(
         this.accountId,
         envelopeId,
-        'combined'
+        'combined',
+        { responseType: 'arraybuffer' }
       );
 
-      // Ensure we have a buffer
-      const buffer = Buffer.from(response);
+      // Convert response to buffer if needed
+      let buffer;
+      if (Buffer.isBuffer(response)) {
+        buffer = response;
+      } else if (response instanceof ArrayBuffer) {
+        buffer = Buffer.from(response);
+      } else if (typeof response === 'string') {
+        buffer = Buffer.from(response, 'binary');
+      } else {
+        throw new Error('Unexpected response type from DocuSign');
+      }
 
       // Verify buffer is not empty
       if (!buffer || buffer.length === 0) {
         throw new Error('Received empty document from DocuSign');
       }
 
-      console.log('Successfully downloaded document, size:', buffer.length);
-      return buffer;
+      console.log('Successfully downloaded document, size:', buffer.length, 'bytes');
+      return {
+        buffer,
+        contentType: 'application/pdf',
+        filename: `drone_registration_${envelopeId}.pdf`
+      };
     } catch (error) {
       console.error('Error downloading document:', error);
       if (error.response && error.response.body) {
