@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plane, Clipboard, User as UserIcon, CheckCircle, LayoutDashboard, Download, Clock, X, Search } from 'lucide-react';
+import { Plane, Clipboard, User as UserIcon, CheckCircle, LayoutDashboard, Download, Clock, X, Search, Loader2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from './lib/supabase';
 import { Auth } from './components/Auth';
@@ -85,6 +85,7 @@ function App() {
   const [showHomePage, setShowHomePage] = useState(true);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Reset all form states
   const resetStates = () => {
@@ -1006,11 +1007,35 @@ function App() {
                               Signed
                             </span>
                             <button
-                              onClick={() => docuSignService.downloadDocument(selectedDrone.docusign_envelope_id)}
-                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors"
+                              onClick={async () => {
+                                try {
+                                  if (!selectedDrone.docusign_envelope_id) {
+                                    alert('Document ID not found');
+                                    return;
+                                  }
+                                  setIsLoading(true);
+                                  await docuSignService.downloadDocument(selectedDrone.docusign_envelope_id);
+                                } catch (error) {
+                                  console.error('Error downloading document:', error);
+                                  alert('Failed to download the document. Please try again.');
+                                } finally {
+                                  setIsLoading(false);
+                                }
+                              }}
+                              disabled={isLoading || !selectedDrone.docusign_envelope_id}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              <Download className="w-4 h-4 mr-1" />
-                              Download Document
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                  Downloading...
+                                </>
+                              ) : (
+                                <>
+                                  <Download className="w-4 h-4 mr-1" />
+                                  Download Document
+                                </>
+                              )}
                             </button>
                           </>
                         ) : selectedDrone.docusign_status === 'sent' ? (

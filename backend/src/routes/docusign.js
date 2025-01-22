@@ -247,8 +247,7 @@ router.get('/download-document/:envelopeId', async (req, res) => {
       return res.status(400).json({ message: 'Envelope ID is required' });
     }
 
-    const docusignService = new docuSignService();
-    const documentBuffer = await docusignService.downloadDocument(envelopeId);
+    const documentBuffer = await docuSignService.downloadDocument(envelopeId);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="drone_registration_${envelopeId}.pdf"`);
