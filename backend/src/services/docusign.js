@@ -120,6 +120,12 @@ class DocuSignService {
 
   async createEnvelope(data) {
     try {
+      console.log('Received data in createEnvelope:', data);
+
+      if (!data.signer || !data.signer.email || !data.signer.name) {
+        throw new Error('Missing required signer information');
+      }
+
       const accessToken = await this.getAccessToken();
       this.apiClient.addDefaultHeader('Authorization', 'Bearer ' + accessToken);
       
@@ -131,21 +137,46 @@ class DocuSignService {
       console.log('Creating envelope with template:', {
         templateId: data.templateId,
         signer: data.signer,
-        tabs: data.tabs
+        registrationId
       });
+
+      // Create tabs for the template
+      const textTabs = [
+        {
+          tabLabel: 'registrationId',
+          value: registrationId
+        },
+        {
+          tabLabel: 'manufacturer',
+          value: data.manufacturer
+        },
+        {
+          tabLabel: 'model',
+          value: data.model
+        },
+        {
+          tabLabel: 'serialNumber',
+          value: data.serialNumber
+        },
+        {
+          tabLabel: 'pilotLicense',
+          value: data.pilotLicense
+        }
+      ];
 
       // Create the signer recipient
       const signer = docusign.TemplateRole.constructFromObject({
         email: data.signer.email,
         name: data.signer.name,
         roleName: 'signer',
-        clientUserId: data.signer.recipientId,
+        tabs: {
+          textTabs
+        },
         emailNotification: {
           emailSubject: 'Please sign your drone registration certificate',
           emailBody: `Please sign your drone registration certificate. Your registration ID is: ${registrationId}`,
           supportedLanguage: 'en'
-        },
-        tabs: data.tabs
+        }
       });
 
       // Configure webhook notification

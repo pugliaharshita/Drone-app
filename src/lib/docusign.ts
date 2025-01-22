@@ -25,6 +25,13 @@ class DocuSignService {
   private currentSignerName: string = '';
 
   private async createSigningRequest(data: DroneSigningData): Promise<SigningResponse> {
+    console.log('Raw data received:', data);
+
+    // Ensure we have required data
+    if (!data.ownerEmail || !data.ownerName) {
+      throw new Error('Missing required signer information');
+    }
+
     // Format the data for the template
     const formattedData = {
       templateId: '5981d32d-f138-4cb3-9133-cc562830177b',
@@ -34,30 +41,11 @@ class DocuSignService {
         recipientId: '1',
         routingOrder: '1'
       },
-      tabs: {
-        textTabs: [
-          {
-            tabLabel: 'registrationId',
-            value: data.registrationId || ''
-          },
-          {
-            tabLabel: 'manufacturer',
-            value: data.manufacturer
-          },
-          {
-            tabLabel: 'model',
-            value: data.model
-          },
-          {
-            tabLabel: 'serialNumber',
-            value: data.serialNumber
-          },
-          {
-            tabLabel: 'pilotLicense',
-            value: data.pilotLicense
-          }
-        ]
-      }
+      registrationId: data.registrationId,
+      manufacturer: data.manufacturer,
+      model: data.model,
+      serialNumber: data.serialNumber,
+      pilotLicense: data.pilotLicense
     };
 
     console.log('Sending formatted data to create envelope:', formattedData);
