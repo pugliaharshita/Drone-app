@@ -163,22 +163,23 @@ class DocuSignService {
         `${API_BASE_URL}/api/docusign/download-document/${envelopeId}`,
         {
           method: 'GET',
+          headers: {
+            'Accept': 'application/pdf'
+          }
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error downloading document:', errorData);
-        throw new Error(errorData.message || 'Failed to download document');
+        const errorText = await response.text();
+        console.error('Error downloading document:', errorText);
+        throw new Error(errorText || 'Failed to download document');
       }
 
-      // Get the blob from the response
+      // Get the blob directly from the response
       const blob = await response.blob();
       
       // Create a URL for the blob
-      const url = window.URL.createObjectURL(
-        new Blob([blob], { type: 'application/pdf' })
-      );
+      const url = window.URL.createObjectURL(blob);
       
       // Create a temporary link element
       const link = document.createElement('a');
