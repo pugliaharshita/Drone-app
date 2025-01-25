@@ -3,10 +3,27 @@ import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import jwt from 'jsonwebtoken';
 
-// Store client credentials (in production, use a proper database)
-const clients: { [key: string]: { clientSecret: string, name: string } } = {};
+// Get client credentials from environment variables
+const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID;
+const DEFAULT_CLIENT_SECRET = process.env.DEFAULT_CLIENT_SECRET;
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+if (!DEFAULT_CLIENT_ID || !DEFAULT_CLIENT_SECRET) {
+  throw new Error('DEFAULT_CLIENT_ID and DEFAULT_CLIENT_SECRET environment variables must be set');
+}
+
+// Store client credentials
+const clients: { [key: string]: { clientSecret: string, name: string } } = {
+  [DEFAULT_CLIENT_ID]: {
+    clientSecret: DEFAULT_CLIENT_SECRET,
+    name: 'Default Extension Client'
+  }
+};
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable must be set');
+}
 
 const generateToken = (clientId: string): string => {
   return jwt.sign({ clientId }, JWT_SECRET, { expiresIn: '1h' });
@@ -41,28 +58,6 @@ const handler: Handler = async (event, context) => {
   }
 
   try {
-    // Register endpoint
-    if (method === 'POST' && path === '/register') {
-      const { name } = JSON.parse(event.body || '{}');
-      const clientId = crypto.randomBytes(16).toString('hex');
-      const clientSecret = crypto.randomBytes(32).toString('hex');
-
-      clients[clientId] = {
-        clientSecret,
-        name
-      };
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          clientId,
-          clientSecret,
-          name
-        })
-      };
-    }
-
     // Token endpoint
     if (method === 'POST' && path === '/token') {
       const authHeader = event.headers.authorization;
