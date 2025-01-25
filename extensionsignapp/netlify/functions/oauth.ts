@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import jwt from 'jsonwebtoken';
 import querystring from 'querystring';
+import path from 'path';
+import fs from 'fs';
 
 // Get client credentials from environment variables
 const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID || 'fdgsbu3498n48uc64';
@@ -416,22 +418,29 @@ export const handler: Handler = async (event, context) => {
           };
         }
 
-        // Create or read the Excel file with valid phone numbers
         try {
-          // Create a workbook with sample phone numbers if it doesn't exist
-          const validPhoneNumbers = [
-            { phoneNumber: '1234567890', region: '1' },
-            { phoneNumber: '9876543210', region: '1' },
-            { phoneNumber: '5555555555', region: '91' },
-            { phoneNumber: '6666666666', region: '91' }
-          ];
+          // Read the Excel file
+          const filePath = path.join(__dirname, 'phone-numbers.xlsx');
+          if (!fs.existsSync(filePath)) {
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({
+                verified: false,
+                verifyFailureReason: "Phone number database not found"
+              })
+            };
+          }
+
+          const workbook = XLSX.read(fs.readFileSync(filePath));
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const data = XLSX.utils.sheet_to_json(worksheet);
 
           // Check if the phone number exists for the given region
-          const isValid = validPhoneNumbers.some(entry => 
+          const isValid = data.some((entry: any) => 
             entry.phoneNumber === phoneNumber && entry.region === region
           );
 
-          // Return response in DocuSign's expected format
           if (isValid) {
             return {
               statusCode: 200,
@@ -452,13 +461,13 @@ export const handler: Handler = async (event, context) => {
           }
 
         } catch (error) {
-          console.error('Error verifying phone number:', error);
+          console.error('Error reading phone number database:', error);
           return {
             statusCode: 500,
             headers,
             body: JSON.stringify({
               verified: false,
-              verifyFailureReason: "Internal verification error"
+              verifyFailureReason: "Error accessing phone number database"
             })
           };
         }
