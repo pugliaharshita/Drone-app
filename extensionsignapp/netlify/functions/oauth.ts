@@ -180,41 +180,19 @@ export const handler: Handler = async (event, context) => {
 
     // Token endpoint
     if (event.httpMethod === 'POST' && event.path === '/.netlify/functions/oauth/token') {
-      // Get authorization header
+      console.log('Token endpoint accessed');
+      console.log('Request headers:', event.headers);
+      
+      let client_id, client_secret;
+      
+      // Check for Basic auth first
       const authHeader = event.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Basic ')) {
-        return {
-          statusCode: 401,
-          headers: {
-            ...headers,
-            'WWW-Authenticate': 'Basic realm="Sample Extension App"'
-          },
-          body: JSON.stringify({ 
-            error: 'invalid_client',
-            error_description: 'Missing or invalid authorization header'
-          })
-        };
-      }
-
-      // Parse client credentials from Basic auth header
-      const [clientId, clientSecret] = Buffer.from(authHeader.split(' ')[1], 'base64')
-        .toString()
-        .split(':');
-
-      // Verify client credentials
-      const client = clients[clientId];
-      if (!client || client.clientSecret !== clientSecret) {
-        return {
-          statusCode: 401,
-          headers: {
-            ...headers,
-            'WWW-Authenticate': 'Basic realm="Sample Extension App"'
-          },
-          body: JSON.stringify({ 
-            error: 'invalid_client',
-            error_description: 'Invalid client credentials'
-          })
-        };
+      if (authHeader && authHeader.startsWith('Basic ')) {
+        console.log('Found Basic auth header');
+        const base64Credentials = authHeader.split(' ')[1];
+        const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
+        [client_id, client_secret] = credentials.split(':');
+        console.log('Extracted client credentials from Basic auth');
       }
 
       // Parse form data
@@ -231,7 +209,30 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
+      // If no Basic auth, try body params
+      if (!client_id || !client_secret) {
+        client_id = params.client_id;
+        client_secret = params.client_secret;
+      }
+
       const { grant_type, code } = params;
+
+      // Validate client credentials
+      const client = clients[client_id];
+      if (!client || client.clientSecret !== client_secret) {
+        console.log('Invalid client credentials');
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'WWW-Authenticate': 'Basic realm="OAuth"'
+          },
+          body: JSON.stringify({ 
+            error: 'invalid_client',
+            error_description: 'Invalid client credentials'
+          })
+        };
+      }
 
       // Handle authorization code grant
       if (grant_type === 'authorization_code') {
@@ -241,7 +242,7 @@ export const handler: Handler = async (event, context) => {
             headers,
             body: JSON.stringify({ 
               error: 'invalid_request',
-              error_description: 'Missing authorization code'
+              error_description: 'Authorization code is required'
             })
           };
         }
@@ -250,6 +251,7 @@ export const handler: Handler = async (event, context) => {
         const authCodeData = authCodes.get(code);
         if (!authCodeData || authCodeData.expiresAt < Date.now()) {
           authCodes.delete(code);
+          console.log('Invalid or expired authorization code');
           return {
             statusCode: 400,
             headers,
@@ -261,7 +263,8 @@ export const handler: Handler = async (event, context) => {
         }
 
         // Verify client ID matches
-        if (authCodeData.clientId !== clientId) {
+        if (authCodeData.clientId !== client_id) {
+          console.log('Client ID mismatch');
           return {
             statusCode: 400,
             headers,
@@ -278,20 +281,19 @@ export const handler: Handler = async (event, context) => {
         // Remove used authorization code
         authCodes.delete(code);
 
-        // Return token response
+        // Generate refresh token if offline access was requested
         const response: any = {
           access_token: token,
           token_type: 'Bearer',
-          expires_in: 3600
+          expires_in: 3600,
+          scope: authCodeData.scope || 'signature'
         };
-
-        if (authCodeData.scope) {
-          response.scope = authCodeData.scope;
-        }
 
         if (authCodeData.access_type === 'offline') {
           response.refresh_token = crypto.randomBytes(32).toString('hex');
         }
+
+        console.log('Token response:', { ...response, access_token: '[REDACTED]' });
 
         return {
           statusCode: 200,
@@ -309,7 +311,7 @@ export const handler: Handler = async (event, context) => {
         headers,
         body: JSON.stringify({ 
           error: 'unsupported_grant_type',
-          error_description: 'Unsupported grant type'
+          error_description: 'Supported grant types: authorization_code'
         })
       };
     }
