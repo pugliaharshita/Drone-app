@@ -5,12 +5,11 @@
   "main": "src/index.js",
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build && npm run generate-phone-data && npm run build:functions",
+    "build": "react-scripts build && npm run build:functions",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "build:functions": "tsc -p netlify/functions/tsconfig.json",
-    "dev": "netlify dev",
-    "generate-phone-data": "node scripts/generate-phone-data.js"
+    "dev": "netlify dev"
   },
   "dependencies": {
     "@netlify/functions": "^2.0.0",

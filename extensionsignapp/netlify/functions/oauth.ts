@@ -420,27 +420,11 @@ export const handler: Handler = async (event, context) => {
         }
 
         try {
-          // Fetch the Excel file from the public URL
-          const response = await fetch('/data/phone-numbers.xlsx');
-          if (!response.ok) {
-            console.error('Failed to fetch phone numbers database:', response.status, response.statusText);
-            return {
-              statusCode: 200,
-              headers,
-              body: JSON.stringify({
-                verified: false,
-                verifyFailureReason: "Phone number database not found"
-              })
-            };
-          }
-
-          const buffer = await response.arrayBuffer();
-          const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const data = XLSX.utils.sheet_to_json(worksheet);
-
+          // Import phone numbers data
+          const phoneData = require('./phone-numbers.json');
+          
           // Check if the phone number exists for the given region
-          const isValid = data.some((entry: any) => 
+          const isValid = phoneData.phoneNumbers.some((entry: any) => 
             entry.phoneNumber === phoneNumber && entry.region === region
           );
 
