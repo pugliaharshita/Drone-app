@@ -1,14 +1,14 @@
 {
-  "name": "docusign-ssn-verification-extension",
+  "name": "docusign-Mobile-verification-extension",
   "version": "1.0.0",
-  "description": "DocuSign Extension App for SSN Verification",
+  "description": "DocuSign Extension App for Mobile Verification",
   "main": "src/index.js",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build && npm run build:functions",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "build:functions": "tsc -p server/tsconfig.json",
+    "build:functions": "tsc -p netlify/functions/tsconfig.json",
     "dev": "netlify dev"
   },
   "dependencies": {
