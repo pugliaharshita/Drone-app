@@ -164,8 +164,7 @@ class DocuSignService {
         {
           method: 'GET',
           headers: {
-            'Accept': 'application/pdf',
-            'Content-Transfer-Encoding': 'binary'
+            'Accept': 'application/json'
           }
         }
       );
@@ -182,28 +181,22 @@ class DocuSignService {
         throw new Error(errorMessage);
       }
 
-      // Get the content type and filename from headers
-      const contentType = response.headers.get('content-type') || 'application/pdf';
-      const contentDisposition = response.headers.get('content-disposition');
-      let filename = `drone_registration_${envelopeId}.pdf`;
-      if (contentDisposition) {
-        const matches = /filename="([^"]*)"/.exec(contentDisposition);
-        if (matches && matches[1]) {
-          filename = matches[1];
-        }
-      }
-
-      // Get the PDF bytes
-      const pdfBytes = await response.arrayBuffer();
+      const result = await response.json();
       
-      if (!pdfBytes || pdfBytes.byteLength === 0) {
-        throw new Error('Received empty document from server');
+      if (!result.data) {
+        throw new Error('No document data received from server');
       }
 
-      console.log('Received document size:', pdfBytes.byteLength, 'bytes');
-
-      // Create a blob with the PDF bytes
-      const blob = new Blob([pdfBytes], { type: contentType });
+      // Convert base64 to blob
+      const byteCharacters = atob(result.data);
+      const byteNumbers = new Array(byteCharacters.length);
+      
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
       
       // Create a URL for the blob
       const url = window.URL.createObjectURL(blob);
@@ -216,7 +209,7 @@ class DocuSignService {
         console.log('Opening in new tab failed, triggering download...');
         const link = document.createElement('a');
         link.href = url;
-        link.download = filename;
+        link.download = `drone_registration_${envelopeId}.pdf`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

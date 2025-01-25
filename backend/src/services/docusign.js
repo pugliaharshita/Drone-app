@@ -467,32 +467,38 @@ class DocuSignService {
         throw new Error('No documents found in envelope');
       }
 
-      // Get the combined document as PDF byte stream
-      const pdfBytes = await envelopesApi.getDocument(
+      // Get the combined document with base64 encoding
+      const response = await envelopesApi.getDocument(
         this.accountId,
         envelopeId,
         'combined',
         {
-          encoding: null,  // Get raw bytes
-          responseType: 'arraybuffer'
+          encoding: 'base64'
         }
       );
 
-      // Convert to Buffer if needed
-      const buffer = Buffer.from(pdfBytes);
-
-      // Verify buffer
-      if (!buffer || buffer.length === 0) {
+      if (!response) {
         throw new Error('No document data received from DocuSign');
       }
 
-      console.log('Successfully downloaded document, size:', buffer.length);
+      // Clean up base64 string if needed
+      const base64Clean = response
+        .replace(/^data:application\/pdf;base64,/, '')
+        .replace(/[\n\r]/g, '')
+        .trim();
+
+      // Validate base64 string
+      if (base64Clean.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64Clean)) {
+        throw new Error('Invalid document format received from DocuSign');
+      }
+
+      console.log('Successfully downloaded document');
       
-      // Return with content type
       return {
-        data: buffer,
+        data: base64Clean,
         contentType: 'application/pdf',
-        contentDisposition: `attachment; filename="drone_registration_${envelopeId}.pdf"`
+        contentDisposition: `attachment; filename="drone_registration_${envelopeId}.pdf"`,
+        encoding: 'base64'
       };
     } catch (error) {
       console.error('Error downloading document:', error);
@@ -504,4 +510,5 @@ class DocuSignService {
   }
 }
 
+module.exports = new DocuSignService(); 
 module.exports = new DocuSignService(); 
