@@ -6,7 +6,7 @@ import querystring from 'querystring';
 
 // Get client credentials from environment variables
 const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID || 'fdgsbu3498n48uc64';
-const DEFAULT_CLIENT_SECRET = process.env.DEFAULT_CLIENT_SECRET;
+const DEFAULT_CLIENT_SECRET = process.env.DEFAULT_CLIENT_SECRET || 'ekhnwfiolfwetr3582478f4icnh4i23y84c728yhn24u546n';
 const DOCUSIGN_CALLBACK_URL = 'https://demo.services.docusign.net/act-gateway/v1.0/oauth/callback';
 
 if (!DEFAULT_CLIENT_ID || !DEFAULT_CLIENT_SECRET) {
@@ -192,7 +192,7 @@ export const handler: Handler = async (event, context) => {
         const base64Credentials = authHeader.split(' ')[1];
         const credentials = Buffer.from(base64Credentials, 'base64').toString('ascii');
         [client_id, client_secret] = credentials.split(':');
-        console.log('Extracted client credentials from Basic auth');
+        console.log('Extracted client credentials from Basic auth:', { client_id, client_secret_length: client_secret?.length });
       }
 
       // Parse form data
@@ -201,6 +201,7 @@ export const handler: Handler = async (event, context) => {
 
       if (contentType.includes('application/x-www-form-urlencoded')) {
         params = querystring.parse(event.body || '');
+        console.log('Parsed form data:', params);
       } else {
         try {
           params = JSON.parse(event.body || '{}');
@@ -213,12 +214,21 @@ export const handler: Handler = async (event, context) => {
       if (!client_id || !client_secret) {
         client_id = params.client_id;
         client_secret = params.client_secret;
+        console.log('Using body credentials:', { client_id, client_secret_length: client_secret?.length });
       }
 
       const { grant_type, code } = params;
+      console.log('Request parameters:', { grant_type, code_length: code?.length });
 
       // Validate client credentials
       const client = clients[client_id];
+      console.log('Found client:', { 
+        client_exists: !!client,
+        client_id,
+        expected_secret_length: client?.clientSecret?.length,
+        received_secret_length: client_secret?.length
+      });
+
       if (!client || client.clientSecret !== client_secret) {
         console.log('Invalid client credentials');
         return {
