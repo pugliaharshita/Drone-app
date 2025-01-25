@@ -383,35 +383,31 @@ export const handler: Handler = async (event, context) => {
         };
       }
 
-      const { mobileNumber, excelFile } = JSON.parse(event.body || '{}');
+      const { phoneNumber, region } = JSON.parse(event.body || '{}');
       
-      if (!excelFile || !mobileNumber) {
+      if (!phoneNumber || !region) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Excel file and mobile number are required' })
+          body: JSON.stringify({ error: 'Phone number and region are required' })
         };
       }
 
-      // Read the Excel file
-      const buffer = Buffer.from(excelFile, 'base64');
-      const workbook = XLSX.read(buffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const data = XLSX.utils.sheet_to_json(worksheet);
+      // For testing purposes, let's verify a few hardcoded numbers
+      const validNumbers: { [key: string]: string[] } = {
+        '1': ['1234567890', '9876543210'],  // Region 1 numbers
+        '91': ['2345678901', '8765432109'],  // Region 91 numbers
+        '92': ['3456789012', '7654321098']   // Region 92 numbers
+      };
 
-      // Search for the mobile number
-      const found = data.some((row: any) => {
-        const rowMobileNumber = row.mobileNumber?.toString() || row.mobile?.toString() || row['mobile number']?.toString();
-        return rowMobileNumber === mobileNumber.toString();
-      });
+      const isValid = validNumbers[region]?.includes(phoneNumber);
 
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
-          verified: found,
-          message: found ? 'Mobile number verified successfully' : 'Mobile number not found in records'
+          verified: !!isValid,
+          message: isValid ? 'Phone number verified successfully' : 'Phone number not found in records'
         })
       };
     }
