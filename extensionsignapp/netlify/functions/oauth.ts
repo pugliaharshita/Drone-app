@@ -5,8 +5,9 @@ import jwt from 'jsonwebtoken';
 import querystring from 'querystring';
 
 // Get client credentials from environment variables
-const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID;
+const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID || 'fdgsbu3498n48uc64';
 const DEFAULT_CLIENT_SECRET = process.env.DEFAULT_CLIENT_SECRET;
+const DOCUSIGN_CALLBACK_URL = 'https://demo.services.docusign.net/act-gateway/v1.0/oauth/callback';
 
 if (!DEFAULT_CLIENT_ID || !DEFAULT_CLIENT_SECRET) {
   throw new Error('DEFAULT_CLIENT_ID and DEFAULT_CLIENT_SECRET environment variables must be set');
@@ -16,7 +17,7 @@ if (!DEFAULT_CLIENT_ID || !DEFAULT_CLIENT_SECRET) {
 const clients: { [key: string]: { clientSecret: string, name: string } } = {
   [DEFAULT_CLIENT_ID]: {
     clientSecret: DEFAULT_CLIENT_SECRET,
-    name: 'Default Extension Client'
+    name: 'Sample Extension App'
   }
 };
 
@@ -25,8 +26,9 @@ interface AuthCodeData {
   clientId: string;
   redirectUri: string;
   expiresAt: number;
-  codeChallenge?: string;
-  codeChallengeMethod?: string;
+  state?: string;
+  scope?: string;
+  access_type?: string;
 }
 
 const authCodes = new Map<string, AuthCodeData>();
@@ -40,7 +42,7 @@ if (!JWT_SECRET) {
 const generateToken = (clientId: string, scope?: string): string => {
   return jwt.sign({ 
     clientId,
-    scope: scope || 'mobile_verify'
+    scope: scope || 'signature'
   }, JWT_SECRET, { 
     expiresIn: '1h',
     audience: clientId,
@@ -59,15 +61,16 @@ const verifyToken = async (token: string): Promise<any> => {
   });
 };
 
-const generateAuthCode = (clientId: string, redirectUri: string, codeChallenge?: string, codeChallengeMethod?: string): string => {
+const generateAuthCode = (clientId: string, redirectUri: string, state?: string, scope?: string, access_type?: string): string => {
   const code = crypto.randomBytes(32).toString('hex');
   // Authorization code expires in 10 minutes
   authCodes.set(code, {
     clientId,
     redirectUri,
     expiresAt: Date.now() + 10 * 60 * 1000,
-    codeChallenge,
-    codeChallengeMethod
+    state,
+    scope,
+    access_type
   });
   return code;
 };
@@ -110,12 +113,12 @@ export const handler: Handler = async (event, context) => {
         redirect_uri, 
         response_type, 
         state,
-        code_challenge,
-        code_challenge_method,
-        scope 
+        scope,
+        prompt,
+        access_type
       } = event.queryStringParameters || {};
 
-      if (!client_id || !redirect_uri || response_type !== 'code') {
+      if (!client_id || response_type !== 'code') {
         return {
           statusCode: 400,
           headers,
@@ -138,16 +141,14 @@ export const handler: Handler = async (event, context) => {
         };
       }
 
-      // Validate redirect URI (you should implement proper URI validation)
-      try {
-        new URL(redirect_uri);
-      } catch (e) {
+      // Verify prompt is consent if provided
+      if (prompt && prompt !== 'consent') {
         return {
           statusCode: 400,
           headers,
           body: JSON.stringify({ 
             error: 'invalid_request',
-            error_description: 'Invalid redirect URI'
+            error_description: 'Invalid prompt parameter'
           })
         };
       }
@@ -155,13 +156,14 @@ export const handler: Handler = async (event, context) => {
       // Generate authorization code
       const code = generateAuthCode(
         client_id, 
-        redirect_uri,
-        code_challenge,
-        code_challenge_method
+        DOCUSIGN_CALLBACK_URL,
+        state,
+        scope,
+        access_type
       );
 
-      // Redirect back to the client with the authorization code
-      const redirectUrl = new URL(redirect_uri);
+      // Redirect back to DocuSign with the authorization code
+      const redirectUrl = new URL(DOCUSIGN_CALLBACK_URL);
       redirectUrl.searchParams.append('code', code);
       if (state) {
         redirectUrl.searchParams.append('state', state);
@@ -185,7 +187,7 @@ export const handler: Handler = async (event, context) => {
           statusCode: 401,
           headers: {
             ...headers,
-            'WWW-Authenticate': 'Basic'
+            'WWW-Authenticate': 'Basic realm="Sample Extension App"'
           },
           body: JSON.stringify({ 
             error: 'invalid_client',
@@ -194,7 +196,7 @@ export const handler: Handler = async (event, context) => {
         };
       }
 
-      // Parse client credentials from Basic auth
+      // Parse client credentials from Basic auth header
       const [clientId, clientSecret] = Buffer.from(authHeader.split(' ')[1], 'base64')
         .toString()
         .split(':');
@@ -206,7 +208,7 @@ export const handler: Handler = async (event, context) => {
           statusCode: 401,
           headers: {
             ...headers,
-            'WWW-Authenticate': 'Basic'
+            'WWW-Authenticate': 'Basic realm="Sample Extension App"'
           },
           body: JSON.stringify({ 
             error: 'invalid_client',
@@ -229,21 +231,17 @@ export const handler: Handler = async (event, context) => {
         }
       }
 
-      const {
-        grant_type,
-        code,
-        redirect_uri
-      } = params;
+      const { grant_type, code } = params;
 
       // Handle authorization code grant
       if (grant_type === 'authorization_code') {
-        if (!code || !redirect_uri) {
+        if (!code) {
           return {
             statusCode: 400,
             headers,
             body: JSON.stringify({ 
               error: 'invalid_request',
-              error_description: 'Missing required parameters'
+              error_description: 'Missing authorization code'
             })
           };
         }
@@ -274,74 +272,27 @@ export const handler: Handler = async (event, context) => {
           };
         }
 
-        // Verify redirect URI matches
-        if (authCodeData.redirectUri !== redirect_uri) {
-          return {
-            statusCode: 400,
-            headers,
-            body: JSON.stringify({ 
-              error: 'invalid_grant',
-              error_description: 'Redirect URI mismatch'
-            })
-          };
-        }
-
         // Generate token
-        const token = generateToken(authCodeData.clientId);
+        const token = generateToken(authCodeData.clientId, authCodeData.scope);
         
         // Remove used authorization code
         authCodes.delete(code);
 
         // Return token response
-        return {
-          statusCode: 200,
-          headers: {
-            ...headers,
-            'Cache-Control': 'no-store',
-            'Pragma': 'no-cache'
-          },
-          body: JSON.stringify({
-            access_token: token,
-            token_type: 'Bearer',
-            expires_in: 3600,
-            scope: 'signature mobile_verify'
-          })
+        const response: any = {
+          access_token: token,
+          token_type: 'Bearer',
+          expires_in: 3600
         };
-      }
-      
-      // Handle client credentials grant
-      if (grant_type === 'client_credentials') {
-        const authHeader = event.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Basic ')) {
-          return {
-            statusCode: 401,
-            headers,
-            body: JSON.stringify({ 
-              error: 'invalid_client',
-              error_description: 'Invalid authorization header'
-            })
-          };
+
+        if (authCodeData.scope) {
+          response.scope = authCodeData.scope;
         }
 
-        const credentials = Buffer.from(authHeader.split(' ')[1], 'base64')
-          .toString()
-          .split(':');
-        
-        const [clientId, clientSecret] = credentials;
-        const client = clients[clientId];
-
-        if (!client || client.clientSecret !== clientSecret) {
-          return {
-            statusCode: 401,
-            headers,
-            body: JSON.stringify({ 
-              error: 'invalid_client',
-              error_description: 'Invalid client credentials'
-            })
-          };
+        if (authCodeData.access_type === 'offline') {
+          response.refresh_token = crypto.randomBytes(32).toString('hex');
         }
 
-        const token = generateToken(clientId);
         return {
           statusCode: 200,
           headers: {
@@ -349,12 +300,7 @@ export const handler: Handler = async (event, context) => {
             'Cache-Control': 'no-store',
             'Pragma': 'no-cache'
           },
-          body: JSON.stringify({
-            access_token: token,
-            token_type: 'Bearer',
-            expires_in: 3600,
-            scope: 'mobile_verify'
-          })
+          body: JSON.stringify(response)
         };
       }
 
