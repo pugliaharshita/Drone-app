@@ -162,10 +162,7 @@ class DocuSignService {
       const response = await fetch(
         `${API_BASE_URL}/api/docusign/download-document/${envelopeId}`,
         {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/pdf, application/octet-stream'
-          }
+          method: 'GET'
         }
       );
 
@@ -181,37 +178,34 @@ class DocuSignService {
         throw new Error(errorMessage);
       }
 
-      // Get content type from response
-      const contentType = response.headers.get('content-type');
-      console.log('Response content type:', contentType);
-
-      // Get the array buffer from the response
-      const arrayBuffer = await response.arrayBuffer();
+      // Get the binary data directly
+      const blob = await response.blob();
       
-      if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+      if (!blob || blob.size === 0) {
         throw new Error('Received empty document from server');
       }
 
-      console.log('Received document size:', arrayBuffer.byteLength, 'bytes');
+      console.log('Received document size:', blob.size, 'bytes');
 
-      // Create a blob from the array buffer
-      const blob = new Blob([arrayBuffer], { 
-        type: contentType || 'application/pdf'
-      });
-      
       // Create a URL for the blob
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(
+        new Blob([blob], { type: 'application/pdf' })
+      );
       
-      // Open PDF in new tab first
-      window.open(url, '_blank');
-
-      // Also trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `drone_registration_${envelopeId}.pdf`;
-      link.click();
+      // Open PDF in new tab
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) {
+        console.warn('Popup was blocked. Falling back to direct download.');
+        // Fallback to direct download if popup is blocked
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `drone_registration_${envelopeId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
       
-      // Clean up the URL after a short delay
+      // Clean up the URL after a delay to ensure the download/view has started
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
       }, 1000);
