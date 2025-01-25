@@ -246,7 +246,10 @@ export const handler: Handler = async (event, context) => {
 
       // Handle authorization code grant
       if (grant_type === 'authorization_code') {
+        console.log('Processing authorization_code grant type');
+        
         if (!code) {
+          console.log('Missing authorization code');
           return {
             statusCode: 400,
             headers,
@@ -259,9 +262,29 @@ export const handler: Handler = async (event, context) => {
 
         // Verify authorization code
         const authCodeData = authCodes.get(code);
+        console.log('Authorization code data:', {
+          code_exists: !!authCodeData,
+          expires_at: authCodeData?.expiresAt,
+          current_time: Date.now(),
+          is_expired: authCodeData ? authCodeData.expiresAt < Date.now() : true,
+          stored_client_id: authCodeData?.clientId,
+          received_client_id: client_id
+        });
+
         if (!authCodeData || authCodeData.expiresAt < Date.now()) {
           authCodes.delete(code);
           console.log('Invalid or expired authorization code');
+          
+          // Log all stored auth codes for debugging
+          console.log('Currently stored auth codes:', {
+            count: authCodes.size,
+            codes: Array.from(authCodes.keys()).map(k => ({
+              code_prefix: k.substring(0, 8),
+              client_id: authCodes.get(k)?.clientId,
+              expires_in: authCodes.get(k)?.expiresAt ? Math.floor((authCodes.get(k)!.expiresAt - Date.now()) / 1000) : null
+            }))
+          });
+          
           return {
             statusCode: 400,
             headers,
@@ -274,7 +297,10 @@ export const handler: Handler = async (event, context) => {
 
         // Verify client ID matches
         if (authCodeData.clientId !== client_id) {
-          console.log('Client ID mismatch');
+          console.log('Client ID mismatch:', {
+            stored_client_id: authCodeData.clientId,
+            received_client_id: client_id
+          });
           return {
             statusCode: 400,
             headers,
@@ -285,11 +311,14 @@ export const handler: Handler = async (event, context) => {
           };
         }
 
+        console.log('Authorization code validation successful');
+
         // Generate token
         const token = generateToken(authCodeData.clientId, authCodeData.scope);
         
         // Remove used authorization code
         authCodes.delete(code);
+        console.log('Authorization code removed from storage');
 
         // Generate refresh token if offline access was requested
         const response: any = {
@@ -301,9 +330,14 @@ export const handler: Handler = async (event, context) => {
 
         if (authCodeData.access_type === 'offline') {
           response.refresh_token = crypto.randomBytes(32).toString('hex');
+          console.log('Generated refresh token for offline access');
         }
 
-        console.log('Token response:', { ...response, access_token: '[REDACTED]' });
+        console.log('Token response:', { 
+          ...response, 
+          access_token: '[REDACTED]',
+          refresh_token: response.refresh_token ? '[REDACTED]' : undefined
+        });
 
         return {
           statusCode: 200,
