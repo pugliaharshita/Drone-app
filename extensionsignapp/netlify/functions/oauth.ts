@@ -19,8 +19,16 @@ const clients: { [key: string]: { clientSecret: string, name: string } } = {
   }
 };
 
-// Store authorization codes temporarily
-const authCodes = new Map<string, { clientId: string, expiresAt: number }>();
+// Store authorization codes temporarily with additional data
+interface AuthCodeData {
+  clientId: string;
+  redirectUri: string;
+  expiresAt: number;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
+}
+
+const authCodes = new Map<string, AuthCodeData>();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -28,27 +36,52 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable must be set');
 }
 
-const generateToken = (clientId: string): string => {
-  return jwt.sign({ clientId }, JWT_SECRET, { expiresIn: '1h' });
+const generateToken = (clientId: string, scope?: string): string => {
+  return jwt.sign({ 
+    clientId,
+    scope: scope || 'mobile_verify'
+  }, JWT_SECRET, { 
+    expiresIn: '1h',
+    audience: clientId,
+    issuer: 'https://droneextensionapp.netlify.app'
+  });
 };
 
 const verifyToken = async (token: string): Promise<any> => {
   return new Promise((resolve, reject) => {
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    jwt.verify(token, JWT_SECRET, {
+      issuer: 'https://droneextensionapp.netlify.app'
+    }, (err, decoded) => {
       if (err) reject(err);
       else resolve(decoded);
     });
   });
 };
 
-const generateAuthCode = (clientId: string): string => {
+const generateAuthCode = (clientId: string, redirectUri: string, codeChallenge?: string, codeChallengeMethod?: string): string => {
   const code = crypto.randomBytes(32).toString('hex');
   // Authorization code expires in 10 minutes
   authCodes.set(code, {
     clientId,
-    expiresAt: Date.now() + 10 * 60 * 1000
+    redirectUri,
+    expiresAt: Date.now() + 10 * 60 * 1000,
+    codeChallenge,
+    codeChallengeMethod
   });
   return code;
+};
+
+const verifyCodeChallenge = (codeVerifier: string, storedChallenge: string, method: string): boolean => {
+  if (method === 'S256') {
+    const hash = crypto.createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+    return hash === storedChallenge;
+  }
+  return codeVerifier === storedChallenge;
 };
 
 export const handler: Handler = async (event, context) => {
@@ -70,13 +103,24 @@ export const handler: Handler = async (event, context) => {
   try {
     // Authorization endpoint
     if (event.httpMethod === 'GET' && event.path === '/.netlify/functions/oauth/authorize') {
-      const { client_id, redirect_uri, response_type, state } = event.queryStringParameters || {};
+      const { 
+        client_id, 
+        redirect_uri, 
+        response_type, 
+        state,
+        code_challenge,
+        code_challenge_method,
+        scope 
+      } = event.queryStringParameters || {};
 
       if (!client_id || !redirect_uri || response_type !== 'code') {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Invalid authorization request' })
+          body: JSON.stringify({ 
+            error: 'invalid_request',
+            error_description: 'Missing required parameters'
+          })
         };
       }
 
@@ -85,12 +129,34 @@ export const handler: Handler = async (event, context) => {
         return {
           statusCode: 401,
           headers,
-          body: JSON.stringify({ error: 'Invalid client' })
+          body: JSON.stringify({ 
+            error: 'unauthorized_client',
+            error_description: 'Invalid client'
+          })
+        };
+      }
+
+      // Validate redirect URI (you should implement proper URI validation)
+      try {
+        new URL(redirect_uri);
+      } catch (e) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ 
+            error: 'invalid_request',
+            error_description: 'Invalid redirect URI'
+          })
         };
       }
 
       // Generate authorization code
-      const code = generateAuthCode(client_id);
+      const code = generateAuthCode(
+        client_id, 
+        redirect_uri,
+        code_challenge,
+        code_challenge_method
+      );
 
       // Redirect back to the client with the authorization code
       const redirectUrl = new URL(redirect_uri);
@@ -110,22 +176,80 @@ export const handler: Handler = async (event, context) => {
 
     // Token endpoint
     if (event.httpMethod === 'POST' && event.path === '/.netlify/functions/oauth/token') {
-      const authHeader = event.headers.authorization;
       const body = JSON.parse(event.body || '{}');
       
       // Handle authorization code grant
       if (body.grant_type === 'authorization_code') {
-        const { code, redirect_uri } = body;
+        const { 
+          code, 
+          redirect_uri, 
+          client_id,
+          client_secret,
+          code_verifier 
+        } = body;
         
         // Verify authorization code
         const authCodeData = authCodes.get(code);
         if (!authCodeData || authCodeData.expiresAt < Date.now()) {
           authCodes.delete(code);
           return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ 
+              error: 'invalid_grant',
+              error_description: 'Invalid or expired authorization code'
+            })
+        };
+        }
+
+        // Verify client credentials
+        const client = clients[client_id];
+        if (!client || client.clientSecret !== client_secret) {
+          return {
             statusCode: 401,
             headers,
-            body: JSON.stringify({ error: 'Invalid or expired authorization code' })
+            body: JSON.stringify({ 
+              error: 'invalid_client',
+              error_description: 'Invalid client credentials'
+            })
           };
+        }
+
+        // Verify redirect URI matches
+        if (authCodeData.redirectUri !== redirect_uri) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ 
+              error: 'invalid_grant',
+              error_description: 'Redirect URI mismatch'
+            })
+          };
+        }
+
+        // Verify PKCE if used
+        if (authCodeData.codeChallenge && authCodeData.codeChallengeMethod) {
+          if (!code_verifier) {
+            return {
+              statusCode: 400,
+              headers,
+              body: JSON.stringify({ 
+                error: 'invalid_grant',
+                error_description: 'Code verifier required'
+              })
+            };
+          }
+
+          if (!verifyCodeChallenge(code_verifier, authCodeData.codeChallenge, authCodeData.codeChallengeMethod)) {
+            return {
+              statusCode: 400,
+              headers,
+              body: JSON.stringify({ 
+                error: 'invalid_grant',
+                error_description: 'Code verifier mismatch'
+              })
+            };
+          }
         }
 
         // Generate token
@@ -146,12 +270,16 @@ export const handler: Handler = async (event, context) => {
       }
       
       // Handle client credentials grant
-      if (body.grant_type === 'client_credentials' && authHeader) {
-        if (!authHeader.startsWith('Basic ')) {
+      if (body.grant_type === 'client_credentials') {
+        const authHeader = event.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Basic ')) {
           return {
             statusCode: 401,
             headers,
-            body: JSON.stringify({ error: 'Invalid authorization header' })
+            body: JSON.stringify({ 
+              error: 'invalid_client',
+              error_description: 'Invalid authorization header'
+            })
           };
         }
 
@@ -166,7 +294,10 @@ export const handler: Handler = async (event, context) => {
           return {
             statusCode: 401,
             headers,
-            body: JSON.stringify({ error: 'Invalid client credentials' })
+            body: JSON.stringify({ 
+              error: 'invalid_client',
+              error_description: 'Invalid client credentials'
+            })
           };
         }
 
@@ -185,7 +316,10 @@ export const handler: Handler = async (event, context) => {
       return {
         statusCode: 400,
         headers,
-        body: JSON.stringify({ error: 'Invalid grant type' })
+        body: JSON.stringify({ 
+          error: 'unsupported_grant_type',
+          error_description: 'Unsupported grant type'
+        })
       };
     }
 
@@ -248,14 +382,20 @@ export const handler: Handler = async (event, context) => {
     return {
       statusCode: 404,
       headers,
-      body: JSON.stringify({ error: 'Not found' })
+      body: JSON.stringify({ 
+        error: 'not_found',
+        error_description: 'Endpoint not found'
+      })
     };
   } catch (error) {
     console.error('Error:', error);
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({ error: 'Internal server error' })
+      body: JSON.stringify({ 
+        error: 'server_error',
+        error_description: 'Internal server error'
+      })
     };
   }
 }; 
