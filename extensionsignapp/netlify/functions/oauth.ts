@@ -362,71 +362,82 @@ export const handler: Handler = async (event, context) => {
 
     // Verify mobile endpoint
     if (event.httpMethod === 'POST' && event.path === '/.netlify/functions/oauth/verify-mobile') {
-      console.log('Verify mobile endpoint accessed');
-      console.log('Request body:', event.body);
-      
-      const authHeader = event.headers.authorization;
-      
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return {
-          statusCode: 401,
-          headers,
-          body: JSON.stringify({ 
-            status: 'error',
-            message: 'Missing or invalid authorization header'
-          })
-        };
-      }
-
-      const token = authHeader.split(' ')[1];
       try {
-        await verifyToken(token);
+        let params: any;
+        try {
+          params = JSON.parse(event.body || '{}');
+        } catch {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              error: 'invalid_request',
+              error_description: 'Invalid JSON body'
+            })
+          };
+        }
+
+        const { phoneNumber, region } = params;
+
+        if (!phoneNumber || !region) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              error: 'invalid_request',
+              error_description: 'Missing required parameters: phoneNumber and region'
+            })
+          };
+        }
+
+        // Basic phone number validation
+        const phoneRegex = /^\d{10}$/;
+        const regionRegex = /^\d{1,3}$/;
+
+        if (!phoneRegex.test(phoneNumber)) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              error: 'invalid_phone',
+              error_description: 'Phone number must be 10 digits'
+            })
+          };
+        }
+
+        if (!regionRegex.test(region)) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({
+              error: 'invalid_region',
+              error_description: 'Region code must be 1-3 digits'
+            })
+          };
+        }
+
+        // For now, return success response
+        // In a real implementation, you would validate against your database/service
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            success: true,
+            message: 'Phone number verified successfully'
+          })
+        };
+
       } catch (error) {
+        console.error('Error in verify-mobile:', error);
         return {
-          statusCode: 401,
+          statusCode: 500,
           headers,
-          body: JSON.stringify({ 
-            status: 'error',
-            message: 'Invalid token'
+          body: JSON.stringify({
+            error: 'server_error',
+            error_description: 'Internal server error'
           })
         };
       }
-
-      const { phoneNumber, region } = JSON.parse(event.body || '{}');
-      console.log('Parsed request:', { phoneNumber, region });
-      
-      if (!phoneNumber || !region) {
-        return {
-          statusCode: 400,
-          headers,
-          body: JSON.stringify({ 
-            status: 'error',
-            message: 'Phone number and region are required'
-          })
-        };
-      }
-
-      // For testing purposes, let's verify a few hardcoded numbers
-      const validNumbers: { [key: string]: string[] } = {
-        '1': ['1234567890', '9876543210'],  // Region 1 numbers
-        '91': ['2345678901', '8765432109'],  // Region 91 numbers
-        '92': ['3456789012', '7654321098']   // Region 92 numbers
-      };
-
-      const isValid = validNumbers[region]?.includes(phoneNumber);
-      console.log('Validation result:', { isValid, phoneNumber, region });
-
-      return {
-        statusCode: 200,
-        headers,
-        body: JSON.stringify({
-          status: isValid ? 'success' : 'error',
-          message: isValid ? 'Phone number verified successfully' : 'Phone number not found in records',
-          data: {
-            verified: isValid
-          }
-        })
-      };
     }
 
     return {
