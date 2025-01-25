@@ -421,7 +421,7 @@ export const handler: Handler = async (event, context) => {
 
         try {
           // Fetch the Excel file from the public URL
-          const response = await fetch('https://droneextensionapp.netlify.app/data/phone-numbers.xlsx');
+          const response = await fetch('/data/phone-numbers.xlsx');
           if (!response.ok) {
             console.error('Failed to fetch phone numbers database:', response.status, response.statusText);
             return {
