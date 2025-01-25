@@ -6,7 +6,7 @@ import querystring from 'querystring';
 
 // Get client credentials from environment variables
 const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID || 'fdgsbu3498n48uc64';
-const DEFAULT_CLIENT_SECRET = process.env.DEFAULT_CLIENT_SECRET || 'ekhnwfiolfwetr3582478f4icnh4i23y84c728yhn24u546n';
+const DEFAULT_CLIENT_SECRET = process.env.DEFAULT_CLIENT_SECRET || 'ekhnwfiolfwetr3582478f4icnh4i23';
 const DOCUSIGN_CALLBACK_URL = 'https://demo.services.docusign.net/act-gateway/v1.0/oauth/callback';
 
 if (!DEFAULT_CLIENT_ID || !DEFAULT_CLIENT_SECRET) {
