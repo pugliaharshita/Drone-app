@@ -19,8 +19,8 @@ const worksheet = XLSX.utils.json_to_sheet(phoneData);
 // Add worksheet to workbook
 XLSX.utils.book_append_sheet(workbook, worksheet, 'Phone Numbers');
 
-// Write to file in netlify/functions directory
-const outputPath = path.join(__dirname, '..', 'netlify', 'functions', 'phone-numbers.xlsx');
+// Write to file in public directory so it's deployed
+const outputPath = path.join(__dirname, '..', 'public', 'data', 'phone-numbers.xlsx');
 
 // Create directory if it doesn't exist
 const dir = path.dirname(outputPath);

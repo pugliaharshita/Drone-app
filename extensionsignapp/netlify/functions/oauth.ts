@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import querystring from 'querystring';
 import path from 'path';
 import fs from 'fs';
+import fetch from 'node-fetch';
 
 // Get client credentials from environment variables
 const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID || 'fdgsbu3498n48uc64';
@@ -419,9 +420,10 @@ export const handler: Handler = async (event, context) => {
         }
 
         try {
-          // Read the Excel file
-          const filePath = path.join(__dirname, 'phone-numbers.xlsx');
-          if (!fs.existsSync(filePath)) {
+          // Fetch the Excel file from the public URL
+          const response = await fetch('https://droneextensionapp.netlify.app/data/phone-numbers.xlsx');
+          if (!response.ok) {
+            console.error('Failed to fetch phone numbers database:', response.status, response.statusText);
             return {
               statusCode: 200,
               headers,
@@ -432,7 +434,8 @@ export const handler: Handler = async (event, context) => {
             };
           }
 
-          const workbook = XLSX.read(fs.readFileSync(filePath));
+          const buffer = await response.arrayBuffer();
+          const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
           const worksheet = workbook.Sheets[workbook.SheetNames[0]];
           const data = XLSX.utils.sheet_to_json(worksheet);
 
@@ -463,7 +466,7 @@ export const handler: Handler = async (event, context) => {
         } catch (error) {
           console.error('Error reading phone number database:', error);
           return {
-            statusCode: 500,
+            statusCode: 200,
             headers,
             body: JSON.stringify({
               verified: false,
