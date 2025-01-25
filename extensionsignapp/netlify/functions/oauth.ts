@@ -178,6 +178,44 @@ export const handler: Handler = async (event, context) => {
 
     // Token endpoint
     if (event.httpMethod === 'POST' && event.path === '/.netlify/functions/oauth/token') {
+      // Get authorization header
+      const authHeader = event.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Basic ')) {
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'WWW-Authenticate': 'Basic'
+          },
+          body: JSON.stringify({ 
+            error: 'invalid_client',
+            error_description: 'Missing or invalid authorization header'
+          })
+        };
+      }
+
+      // Parse client credentials from Basic auth
+      const [clientId, clientSecret] = Buffer.from(authHeader.split(' ')[1], 'base64')
+        .toString()
+        .split(':');
+
+      // Verify client credentials
+      const client = clients[clientId];
+      if (!client || client.clientSecret !== clientSecret) {
+        return {
+          statusCode: 401,
+          headers: {
+            ...headers,
+            'WWW-Authenticate': 'Basic'
+          },
+          body: JSON.stringify({ 
+            error: 'invalid_client',
+            error_description: 'Invalid client credentials'
+          })
+        };
+      }
+
+      // Parse form data
       const contentType = event.headers['content-type'] || '';
       let params: any;
 
@@ -194,15 +232,12 @@ export const handler: Handler = async (event, context) => {
       const {
         grant_type,
         code,
-        redirect_uri,
-        client_id,
-        client_secret,
-        code_verifier
+        redirect_uri
       } = params;
 
       // Handle authorization code grant
       if (grant_type === 'authorization_code') {
-        if (!code || !redirect_uri || !client_id) {
+        if (!code || !redirect_uri) {
           return {
             statusCode: 400,
             headers,
@@ -227,15 +262,14 @@ export const handler: Handler = async (event, context) => {
           };
         }
 
-        // Verify client credentials
-        const client = clients[client_id];
-        if (!client || client.clientSecret !== client_secret) {
+        // Verify client ID matches
+        if (authCodeData.clientId !== clientId) {
           return {
-            statusCode: 401,
+            statusCode: 400,
             headers,
             body: JSON.stringify({ 
-              error: 'invalid_client',
-              error_description: 'Invalid client credentials'
+              error: 'invalid_grant',
+              error_description: 'Authorization code was not issued to this client'
             })
           };
         }
@@ -252,37 +286,13 @@ export const handler: Handler = async (event, context) => {
           };
         }
 
-        // Verify PKCE if used
-        if (authCodeData.codeChallenge && authCodeData.codeChallengeMethod) {
-          if (!code_verifier) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ 
-                error: 'invalid_grant',
-                error_description: 'Code verifier required'
-              })
-            };
-          }
-
-          if (!verifyCodeChallenge(code_verifier, authCodeData.codeChallenge, authCodeData.codeChallengeMethod)) {
-            return {
-              statusCode: 400,
-              headers,
-              body: JSON.stringify({ 
-                error: 'invalid_grant',
-                error_description: 'Code verifier mismatch'
-              })
-            };
-          }
-        }
-
         // Generate token
         const token = generateToken(authCodeData.clientId);
         
         // Remove used authorization code
         authCodes.delete(code);
 
+        // Return token response
         return {
           statusCode: 200,
           headers: {
@@ -294,7 +304,7 @@ export const handler: Handler = async (event, context) => {
             access_token: token,
             token_type: 'Bearer',
             expires_in: 3600,
-            scope: 'mobile_verify'
+            scope: 'signature mobile_verify'
           })
         };
       }
