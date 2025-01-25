@@ -9,7 +9,8 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "build:functions": "tsc -p netlify/functions/tsconfig.json",
-    "dev": "netlify dev"
+    "dev": "netlify dev",
+    "generate-phone-data": "node scripts/generate-phone-data.js"
   },
   "dependencies": {
     "@netlify/functions": "^2.0.0",
