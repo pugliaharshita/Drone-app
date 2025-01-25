@@ -371,8 +371,8 @@ export const handler: Handler = async (event, context) => {
             statusCode: 400,
             headers,
             body: JSON.stringify({
-              errorCode: 'INVALID_REQUEST',
-              message: 'Invalid JSON body'
+              verified: false,
+              verifyFailureReason: "Invalid request format"
             })
           };
         }
@@ -384,8 +384,8 @@ export const handler: Handler = async (event, context) => {
             statusCode: 400,
             headers,
             body: JSON.stringify({
-              errorCode: 'INVALID_REQUEST',
-              message: 'Missing required parameters: phoneNumber and region'
+              verified: false,
+              verifyFailureReason: "Missing required parameters"
             })
           };
         }
@@ -396,22 +396,22 @@ export const handler: Handler = async (event, context) => {
 
         if (!phoneRegex.test(phoneNumber)) {
           return {
-            statusCode: 400,
+            statusCode: 200,
             headers,
             body: JSON.stringify({
-              errorCode: 'INVALID_PHONE',
-              message: 'Phone number must be 10 digits'
+              verified: false,
+              verifyFailureReason: "Phone number must be 10 digits"
             })
           };
         }
 
         if (!regionRegex.test(region)) {
           return {
-            statusCode: 400,
+            statusCode: 200,
             headers,
             body: JSON.stringify({
-              errorCode: 'INVALID_REGION',
-              message: 'Region code must be 1-3 digits'
+              verified: false,
+              verifyFailureReason: "Invalid region code"
             })
           };
         }
@@ -432,14 +432,24 @@ export const handler: Handler = async (event, context) => {
           );
 
           // Return response in DocuSign's expected format
-          return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-              value: isValid ? 1 : 0,
-              message: isValid ? 'Phone number verified successfully' : 'Phone number not found or invalid for the given region'
-            })
-          };
+          if (isValid) {
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({
+                verified: true
+              })
+            };
+          } else {
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({
+                verified: false,
+                verifyFailureReason: "Phone number not found for the given region"
+              })
+            };
+          }
 
         } catch (error) {
           console.error('Error verifying phone number:', error);
@@ -447,8 +457,8 @@ export const handler: Handler = async (event, context) => {
             statusCode: 500,
             headers,
             body: JSON.stringify({
-              errorCode: 'VERIFICATION_ERROR',
-              message: 'Error verifying phone number'
+              verified: false,
+              verifyFailureReason: "Internal verification error"
             })
           };
         }
@@ -459,8 +469,8 @@ export const handler: Handler = async (event, context) => {
           statusCode: 500,
           headers,
           body: JSON.stringify({
-            errorCode: 'SERVER_ERROR',
-            message: 'Internal server error'
+            verified: false,
+            verifyFailureReason: "Server error"
           })
         };
       }
