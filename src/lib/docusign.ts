@@ -162,7 +162,11 @@ class DocuSignService {
       const response = await fetch(
         `${API_BASE_URL}/api/docusign/download-document/${envelopeId}`,
         {
-          method: 'GET'
+          method: 'GET',
+          headers: {
+            'Accept': 'application/pdf',
+            'Content-Transfer-Encoding': 'binary'
+          }
         }
       );
 
@@ -178,37 +182,50 @@ class DocuSignService {
         throw new Error(errorMessage);
       }
 
-      // Get the binary data directly
-      const blob = await response.blob();
+      // Get the content type and filename from headers
+      const contentType = response.headers.get('content-type') || 'application/pdf';
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `drone_registration_${envelopeId}.pdf`;
+      if (contentDisposition) {
+        const matches = /filename="([^"]*)"/.exec(contentDisposition);
+        if (matches && matches[1]) {
+          filename = matches[1];
+        }
+      }
+
+      // Get the PDF bytes
+      const pdfBytes = await response.arrayBuffer();
       
-      if (!blob || blob.size === 0) {
+      if (!pdfBytes || pdfBytes.byteLength === 0) {
         throw new Error('Received empty document from server');
       }
 
-      console.log('Received document size:', blob.size, 'bytes');
+      console.log('Received document size:', pdfBytes.byteLength, 'bytes');
 
-      // Create a URL for the blob
-      const url = window.URL.createObjectURL(
-        new Blob([blob], { type: 'application/pdf' })
-      );
+      // Create a blob with the PDF bytes
+      const blob = new Blob([pdfBytes], { type: contentType });
       
-      // Open PDF in new tab
+      // Create a URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Try to open in new tab first
       const newWindow = window.open(url, '_blank');
+      
+      // If popup blocked or failed, trigger download
       if (!newWindow) {
-        console.warn('Popup was blocked. Falling back to direct download.');
-        // Fallback to direct download if popup is blocked
+        console.log('Opening in new tab failed, triggering download...');
         const link = document.createElement('a');
         link.href = url;
-        link.download = `drone_registration_${envelopeId}.pdf`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
       
-      // Clean up the URL after a delay to ensure the download/view has started
+      // Clean up the URL after a delay
       setTimeout(() => {
         window.URL.revokeObjectURL(url);
-      }, 1000);
+      }, 2000);
       
       console.log('Document downloaded successfully');
     } catch (error) {
