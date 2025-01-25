@@ -362,13 +362,19 @@ export const handler: Handler = async (event, context) => {
 
     // Verify mobile endpoint
     if (event.httpMethod === 'POST' && event.path === '/.netlify/functions/oauth/verify-mobile') {
+      console.log('Verify mobile endpoint accessed');
+      console.log('Request body:', event.body);
+      
       const authHeader = event.headers.authorization;
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return {
           statusCode: 401,
           headers,
-          body: JSON.stringify({ error: 'Missing or invalid authorization header' })
+          body: JSON.stringify({ 
+            status: 'error',
+            message: 'Missing or invalid authorization header'
+          })
         };
       }
 
@@ -379,17 +385,24 @@ export const handler: Handler = async (event, context) => {
         return {
           statusCode: 401,
           headers,
-          body: JSON.stringify({ error: 'Invalid token' })
+          body: JSON.stringify({ 
+            status: 'error',
+            message: 'Invalid token'
+          })
         };
       }
 
       const { phoneNumber, region } = JSON.parse(event.body || '{}');
+      console.log('Parsed request:', { phoneNumber, region });
       
       if (!phoneNumber || !region) {
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ error: 'Phone number and region are required' })
+          body: JSON.stringify({ 
+            status: 'error',
+            message: 'Phone number and region are required'
+          })
         };
       }
 
@@ -401,13 +414,17 @@ export const handler: Handler = async (event, context) => {
       };
 
       const isValid = validNumbers[region]?.includes(phoneNumber);
+      console.log('Validation result:', { isValid, phoneNumber, region });
 
       return {
         statusCode: 200,
         headers,
         body: JSON.stringify({
-          verified: !!isValid,
-          message: isValid ? 'Phone number verified successfully' : 'Phone number not found in records'
+          status: isValid ? 'success' : 'error',
+          message: isValid ? 'Phone number verified successfully' : 'Phone number not found in records',
+          data: {
+            verified: isValid
+          }
         })
       };
     }
