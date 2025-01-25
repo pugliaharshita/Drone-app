@@ -420,41 +420,11 @@ export const handler: Handler = async (event, context) => {
         }
 
         try {
-          // Read Excel file from the same directory as the function
-          const excelPath = path.join('/var/task', 'phone-numbers.xlsx');
-          console.log('Looking for Excel file at:', excelPath);
+          // Import phone numbers data
+          const phoneData = require('./phone-numbers.json');
           
-          if (!fs.existsSync(excelPath)) {
-            console.error('Excel file not found at:', excelPath);
-            // Try alternative path
-            const altPath = path.join(__dirname, 'phone-numbers.xlsx');
-            console.log('Trying alternative path:', altPath);
-            
-            if (!fs.existsSync(altPath)) {
-              console.error('Excel file not found at alternative path:', altPath);
-              // Fallback to JSON if Excel not found
-              const phoneData = require('./phone-numbers.json');
-              const isValid = phoneData.phoneNumbers.some((entry: any) => 
-                entry.phoneNumber === phoneNumber && entry.region === region
-              );
-              return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({
-                  verified: isValid
-                })
-              };
-            }
-          }
-
-          // Read Excel file
-          const fileBuffer = fs.readFileSync(fs.existsSync(excelPath) ? excelPath : path.join(__dirname, 'phone-numbers.xlsx'));
-          const workbook = XLSX.read(fileBuffer);
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const data = XLSX.utils.sheet_to_json(worksheet);
-
           // Check if the phone number exists for the given region
-          const isValid = data.some((entry: any) => 
+          const isValid = phoneData.phoneNumbers.some((entry: any) => 
             entry.phoneNumber === phoneNumber && entry.region === region
           );
 

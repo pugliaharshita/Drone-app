@@ -1,8 +1,7 @@
 [build]
-  base = "."
+  base = "extensionsignapp"
   command = "npm install && npm run build"
   publish = "build"
-  functions = "netlify/functions"
 
 [dev]
   command = "npm start"
@@ -16,7 +15,6 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  included_files = ["phone-numbers.xlsx"]
 
 [build.environment]
   NODE_VERSION = "18" 

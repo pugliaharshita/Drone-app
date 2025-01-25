@@ -19,24 +19,16 @@ const worksheet = XLSX.utils.json_to_sheet(phoneData);
 // Add worksheet to workbook
 XLSX.utils.book_append_sheet(workbook, worksheet, 'Phone Numbers');
 
-// Define paths for the Excel file
-const paths = [
-  // Netlify Functions directory
-  path.join(__dirname, '..', 'netlify', 'functions', 'phone-numbers.xlsx'),
-  // Build directory for functions
-  path.join(__dirname, '..', '.netlify', 'functions-serve', 'phone-numbers.xlsx'),
-  // Build directory
-  path.join(__dirname, '..', 'build', 'phone-numbers.xlsx')
-];
+// Write to file in both public and build directories
+const publicPath = path.join(__dirname, '..', 'public', 'data', 'phone-numbers.xlsx');
+const buildPath = path.join(__dirname, '..', 'build', 'data', 'phone-numbers.xlsx');
 
-// Write file to all locations
-paths.forEach(outputPath => {
-  // Create directory if it doesn't exist
-  const dir = path.dirname(outputPath);
+// Create directories if they don't exist
+[publicPath, buildPath].forEach(filePath => {
+  const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
-
-  XLSX.writeFile(workbook, outputPath);
-  console.log(`Excel file created at: ${outputPath}`);
+  XLSX.writeFile(workbook, filePath);
+  console.log(`Excel file created at: ${filePath}`);
 }); 
