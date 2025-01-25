@@ -2,6 +2,7 @@ import { Handler } from '@netlify/functions';
 import crypto from 'crypto';
 import * as XLSX from 'xlsx';
 import jwt from 'jsonwebtoken';
+import querystring from 'querystring';
 
 // Get client credentials from environment variables
 const DEFAULT_CLIENT_ID = process.env.DEFAULT_CLIENT_ID;
@@ -89,7 +90,8 @@ export const handler: Handler = async (event, context) => {
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Content-Type': 'application/json'
   };
 
   // Handle OPTIONS request
@@ -176,18 +178,41 @@ export const handler: Handler = async (event, context) => {
 
     // Token endpoint
     if (event.httpMethod === 'POST' && event.path === '/.netlify/functions/oauth/token') {
-      const body = JSON.parse(event.body || '{}');
-      
+      const contentType = event.headers['content-type'] || '';
+      let params: any;
+
+      if (contentType.includes('application/x-www-form-urlencoded')) {
+        params = querystring.parse(event.body || '');
+      } else {
+        try {
+          params = JSON.parse(event.body || '{}');
+        } catch {
+          params = {};
+        }
+      }
+
+      const {
+        grant_type,
+        code,
+        redirect_uri,
+        client_id,
+        client_secret,
+        code_verifier
+      } = params;
+
       // Handle authorization code grant
-      if (body.grant_type === 'authorization_code') {
-        const { 
-          code, 
-          redirect_uri, 
-          client_id,
-          client_secret,
-          code_verifier 
-        } = body;
-        
+      if (grant_type === 'authorization_code') {
+        if (!code || !redirect_uri || !client_id) {
+          return {
+            statusCode: 400,
+            headers,
+            body: JSON.stringify({ 
+              error: 'invalid_request',
+              error_description: 'Missing required parameters'
+            })
+          };
+        }
+
         // Verify authorization code
         const authCodeData = authCodes.get(code);
         if (!authCodeData || authCodeData.expiresAt < Date.now()) {
@@ -199,7 +224,7 @@ export const handler: Handler = async (event, context) => {
               error: 'invalid_grant',
               error_description: 'Invalid or expired authorization code'
             })
-        };
+          };
         }
 
         // Verify client credentials
@@ -260,17 +285,22 @@ export const handler: Handler = async (event, context) => {
 
         return {
           statusCode: 200,
-          headers,
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-store',
+            'Pragma': 'no-cache'
+          },
           body: JSON.stringify({
             access_token: token,
             token_type: 'Bearer',
-            expires_in: 3600
+            expires_in: 3600,
+            scope: 'mobile_verify'
           })
         };
       }
       
       // Handle client credentials grant
-      if (body.grant_type === 'client_credentials') {
+      if (grant_type === 'client_credentials') {
         const authHeader = event.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Basic ')) {
           return {
@@ -304,11 +334,16 @@ export const handler: Handler = async (event, context) => {
         const token = generateToken(clientId);
         return {
           statusCode: 200,
-          headers,
+          headers: {
+            ...headers,
+            'Cache-Control': 'no-store',
+            'Pragma': 'no-cache'
+          },
           body: JSON.stringify({
             access_token: token,
             token_type: 'Bearer',
-            expires_in: 3600
+            expires_in: 3600,
+            scope: 'mobile_verify'
           })
         };
       }
