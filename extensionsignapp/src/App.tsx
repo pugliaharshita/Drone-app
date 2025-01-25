@@ -1,19 +1,13 @@
 import React from 'react';
-import { ExtensionProvider } from '@docusign/extension-hooks';
-import SSNVerification from './components/SSNVerification';
+import './App.css';
+import MobileVerification from './components/MobileVerification';
 
-const App: React.FC = () => {
-  const handleVerification = (verified: boolean) => {
-    console.log('Verification result:', verified);
-  };
-
+function App() {
   return (
-    <ExtensionProvider>
-      <div className="app">
-        <SSNVerification onVerify={handleVerification} />
-      </div>
-    </ExtensionProvider>
+    <div className="App">
+      <MobileVerification />
+    </div>
   );
-};
+}
 
 export default App; 
