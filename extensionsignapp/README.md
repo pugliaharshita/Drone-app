@@ -2,6 +2,63 @@
 
 A serverless application for mobile number verification using OAuth 2.0 authentication.
 
+## OAuth 2.0 Endpoints
+
+### Authorization URL
+```
+https://droneextensionapp.netlify.app/.netlify/functions/oauth/authorize
+```
+
+Required parameters:
+- `client_id`: Your client ID
+- `redirect_uri`: Your application's callback URL
+- `response_type`: Must be "code"
+- `state`: (Optional) Random string to prevent CSRF attacks
+
+Example:
+```
+https://droneextensionapp.netlify.app/.netlify/functions/oauth/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_CALLBACK_URL&response_type=code
+```
+
+### Token URL
+```
+https://droneextensionapp.netlify.app/.netlify/functions/oauth/token
+```
+
+Supports two grant types:
+
+1. Authorization Code Grant:
+```http
+POST https://droneextensionapp.netlify.app/.netlify/functions/oauth/token
+Content-Type: application/json
+
+{
+  "grant_type": "authorization_code",
+  "code": "AUTHORIZATION_CODE",
+  "redirect_uri": "YOUR_CALLBACK_URL"
+}
+```
+
+2. Client Credentials Grant:
+```http
+POST https://droneextensionapp.netlify.app/.netlify/functions/oauth/token
+Authorization: Basic base64(DEFAULT_CLIENT_ID:DEFAULT_CLIENT_SECRET)
+Content-Type: application/json
+
+{
+  "grant_type": "client_credentials"
+}
+```
+
+Response:
+```json
+{
+  "access_token": "your_jwt_token",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
 ## Required Environment Variables
 
 Set these environment variables in your Netlify dashboard:
@@ -14,46 +71,11 @@ JWT_SECRET=your-jwt-secret
 
 Make sure to use secure, random values for production.
 
-## Deployment Instructions
-
-1. Go to [Netlify](https://app.netlify.com)
-2. Click "Add new site" > "Import an existing project"
-3. Choose "Deploy with GitHub"
-4. Select your repository
-5. Configure build settings:
-   - Base directory: `extensionsignapp`
-   - Build command: `npm run build`
-   - Publish directory: `build`
-6. Add environment variables:
-   - Go to Site settings > Build & deploy > Environment variables
-   - Add the following:
-     - `DEFAULT_CLIENT_ID`: Your chosen client ID
-     - `DEFAULT_CLIENT_SECRET`: Your chosen client secret
-     - `JWT_SECRET`: Your secret key for JWT tokens
-7. Click "Deploy site"
-
 ## API Endpoints
 
-All endpoints are available at `/.netlify/functions/oauth/[endpoint]`
-
-### 1. Get Access Token
+### Verify Mobile Number
 ```http
-POST /.netlify/functions/oauth/token
-Authorization: Basic base64(DEFAULT_CLIENT_ID:DEFAULT_CLIENT_SECRET)
-```
-
-Response:
-```json
-{
-  "access_token": "your_jwt_token",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
-```
-
-### 2. Verify Mobile Number
-```http
-POST /.netlify/functions/oauth/verify-mobile
+POST https://droneextensionapp.netlify.app/.netlify/functions/oauth/verify-mobile
 Authorization: Bearer your_access_token
 Content-Type: application/json
 
@@ -69,6 +91,27 @@ Response:
   "verified": true|false,
   "message": "Mobile number verified successfully" | "Mobile number not found in records"
 }
+```
+
+## Quick Start
+
+1. Get an access token using client credentials:
+```bash
+curl -X POST https://droneextensionapp.netlify.app/.netlify/functions/oauth/token \
+  -H "Authorization: Basic $(echo -n 'YOUR_CLIENT_ID:YOUR_CLIENT_SECRET' | base64)" \
+  -H "Content-Type: application/json" \
+  -d '{"grant_type": "client_credentials"}'
+```
+
+2. Use the token to verify mobile numbers:
+```bash
+curl -X POST https://droneextensionapp.netlify.app/.netlify/functions/oauth/verify-mobile \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mobileNumber": "1234567890",
+    "excelFile": "BASE64_ENCODED_EXCEL_FILE"
+  }'
 ```
 
 ## Development

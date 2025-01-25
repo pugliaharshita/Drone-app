@@ -11,13 +11,16 @@ if (!DEFAULT_CLIENT_ID || !DEFAULT_CLIENT_SECRET) {
   throw new Error('DEFAULT_CLIENT_ID and DEFAULT_CLIENT_SECRET environment variables must be set');
 }
 
-// Store client credentials
+// Store client credentials and authorization codes
 const clients: { [key: string]: { clientSecret: string, name: string } } = {
   [DEFAULT_CLIENT_ID]: {
     clientSecret: DEFAULT_CLIENT_SECRET,
     name: 'Default Extension Client'
   }
 };
+
+// Store authorization codes temporarily
+const authCodes = new Map<string, { clientId: string, expiresAt: number }>();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -36,6 +39,16 @@ const verifyToken = async (token: string): Promise<any> => {
       else resolve(decoded);
     });
   });
+};
+
+const generateAuthCode = (clientId: string): string => {
+  const code = crypto.randomBytes(32).toString('hex');
+  // Authorization code expires in 10 minutes
+  authCodes.set(code, {
+    clientId,
+    expiresAt: Date.now() + 10 * 60 * 1000
+  });
+  return code;
 };
 
 const handler: Handler = async (event, context) => {
@@ -58,42 +71,124 @@ const handler: Handler = async (event, context) => {
   }
 
   try {
+    // Authorization endpoint
+    if (method === 'GET' && path === '/authorize') {
+      const { client_id, redirect_uri, response_type, state } = event.queryStringParameters || {};
+
+      if (!client_id || !redirect_uri || response_type !== 'code') {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid authorization request' })
+        };
+      }
+
+      // Verify client exists
+      if (!clients[client_id]) {
+        return {
+          statusCode: 401,
+          headers,
+          body: JSON.stringify({ error: 'Invalid client' })
+        };
+      }
+
+      // Generate authorization code
+      const code = generateAuthCode(client_id);
+
+      // Redirect back to the client with the authorization code
+      const redirectUrl = new URL(redirect_uri);
+      redirectUrl.searchParams.append('code', code);
+      if (state) {
+        redirectUrl.searchParams.append('state', state);
+      }
+
+      return {
+        statusCode: 302,
+        headers: {
+          ...headers,
+          'Location': redirectUrl.toString()
+        }
+      };
+    }
+
     // Token endpoint
     if (method === 'POST' && path === '/token') {
       const authHeader = event.headers.authorization;
+      const body = JSON.parse(event.body || '{}');
       
-      if (!authHeader || !authHeader.startsWith('Basic ')) {
+      // Handle authorization code grant
+      if (body.grant_type === 'authorization_code') {
+        const { code, redirect_uri } = body;
+        
+        // Verify authorization code
+        const authCodeData = authCodes.get(code);
+        if (!authCodeData || authCodeData.expiresAt < Date.now()) {
+          authCodes.delete(code);
+          return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: 'Invalid or expired authorization code' })
+          };
+        }
+
+        // Generate token
+        const token = generateToken(authCodeData.clientId);
+        
+        // Remove used authorization code
+        authCodes.delete(code);
+
         return {
-          statusCode: 401,
+          statusCode: 200,
           headers,
-          body: JSON.stringify({ error: 'Invalid authorization header' })
+          body: JSON.stringify({
+            access_token: token,
+            token_type: 'Bearer',
+            expires_in: 3600
+          })
+        };
+      }
+      
+      // Handle client credentials grant
+      if (body.grant_type === 'client_credentials' && authHeader) {
+        if (!authHeader.startsWith('Basic ')) {
+          return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: 'Invalid authorization header' })
+          };
+        }
+
+        const credentials = Buffer.from(authHeader.split(' ')[1], 'base64')
+          .toString()
+          .split(':');
+        
+        const [clientId, clientSecret] = credentials;
+        const client = clients[clientId];
+
+        if (!client || client.clientSecret !== clientSecret) {
+          return {
+            statusCode: 401,
+            headers,
+            body: JSON.stringify({ error: 'Invalid client credentials' })
+          };
+        }
+
+        const token = generateToken(clientId);
+        return {
+          statusCode: 200,
+          headers,
+          body: JSON.stringify({
+            access_token: token,
+            token_type: 'Bearer',
+            expires_in: 3600
+          })
         };
       }
 
-      const credentials = Buffer.from(authHeader.split(' ')[1], 'base64')
-        .toString()
-        .split(':');
-      
-      const [clientId, clientSecret] = credentials;
-      const client = clients[clientId];
-
-      if (!client || client.clientSecret !== clientSecret) {
-        return {
-          statusCode: 401,
-          headers,
-          body: JSON.stringify({ error: 'Invalid client credentials' })
-        };
-      }
-
-      const token = generateToken(clientId);
       return {
-        statusCode: 200,
+        statusCode: 400,
         headers,
-        body: JSON.stringify({
-          access_token: token,
-          token_type: 'Bearer',
-          expires_in: 3600
-        })
+        body: JSON.stringify({ error: 'Invalid grant type' })
       };
     }
 
