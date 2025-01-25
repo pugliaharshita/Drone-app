@@ -1,0 +1,36 @@
+.app {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.ssn-verification {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.ssn-verification h2 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.ssn-verification p {
+  color: #666;
+  margin-bottom: 2rem;
+}
+
+/* DocuSign UI component overrides */
+.ds-c-button {
+  margin-top: 1.5rem;
+}
+
+.ds-c-text-field {
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.ds-c-alert {
+  margin: 1rem 0;
+} 
