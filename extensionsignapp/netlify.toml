@@ -1,7 +1,7 @@
 [build]
+  base = "extensionsignapp"
   command = "npm run build"
   publish = "build"
-  base = "/"
 
 [dev]
   command = "npm start"
