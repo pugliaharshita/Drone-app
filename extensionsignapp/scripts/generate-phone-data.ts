@@ -3,12 +3,12 @@ import * as path from 'path';
 
 // Sample phone numbers data
 const phoneData = [
-  { phoneNumber: '1234567890', region: '1' },
-  { phoneNumber: '9876543210', region: '1' },
-  { phoneNumber: '5555555555', region: '91' },
-  { phoneNumber: '6666666666', region: '91' },
-  { phoneNumber: '7777777777', region: '1' },
-  { phoneNumber: '8888888888', region: '91' }
+  { phoneNumber: '1 1234567890', region: '1' },
+  { phoneNumber: '1 9876543210', region: '1' },
+  { phoneNumber: '91 5555555555', region: '91' },
+  { phoneNumber: '91 6666666666', region: '91' },
+  { phoneNumber: '1 7777777777', region: '1' },
+  { phoneNumber: '91 8888888888', region: '91' }
 ];
 
 // Create workbook
